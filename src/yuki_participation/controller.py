@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import math
 import random
@@ -16,6 +17,7 @@ from .models import (
     Effect,
     Estimate,
     Feedback,
+    HostUnitOption,
     Observation,
     Proposal,
     Record,
@@ -54,6 +56,22 @@ class Boundary(Record):
     target: str
     group_wide: bool = False
     dependencies: tuple[SourceRef, ...] = ()
+    author: str = ""
+    explicit_stop: bool = False
+    released_by: SourceRef | None = None
+    release_dependencies: tuple[SourceRef, ...] = ()
+
+
+class SeedAttempt(Record):
+    run_ref: str
+    proposal_id: str
+    thread: str
+    target: str
+    kind: CandidateKind
+    fingerprints: tuple[str, ...]
+    at: float
+    sent_at: float | None = None
+    response: SourceRef | None = None
 
 
 class SeenSource(Record):
@@ -77,7 +95,7 @@ class BeliefBaseline(Record):
 
 class TraceBaseline(Record):
     at: float = Field(ge=0, allow_inf_nan=False)
-    value: float = Field(ge=0, le=1, allow_inf_nan=False)
+    value: float = Field(ge=0, allow_inf_nan=False)
 
 
 class ObservationRefs(Record):
@@ -101,6 +119,7 @@ class StoredObservation(Record):
     invalid_dimensions: tuple[str, ...]
     request_bytes: int | None = None
     matching_self_anchor: SourceRef | None = None
+    resolved_unit: HostUnitOption | None = None
 
     @classmethod
     def from_observation(cls, observation: Observation) -> StoredObservation:
@@ -137,6 +156,7 @@ class State(Record):
     skipped_seconds: float = 0
     capacity_blocked: bool = False
     observer_checkpoint: dict[str, object] = Field(default_factory=dict)
+    host_checkpoint: dict[str, object] = Field(default_factory=dict)
     self_reports: dict[str, SelfReport] = Field(default_factory=dict)
     engagement_report: SelfReport | None = None
     replay_after: float = Field(default=-1, ge=-1, allow_inf_nan=False)
@@ -144,6 +164,9 @@ class State(Record):
     baseline_evictions: int = Field(default=0, ge=0)
     baseline_invalidations: int = Field(default=0, ge=0)
     trace_baselines: dict[str, TraceBaseline] = Field(default_factory=dict)
+    content_keys: dict[str, str] = Field(default_factory=dict)
+    seed_claims: dict[str, float] = Field(default_factory=dict)
+    seed_attempts: dict[str, SeedAttempt] = Field(default_factory=dict)
 
 
 class Controller:
@@ -155,6 +178,32 @@ class Controller:
 
     def _set(self, **updates: object) -> None:
         self.state = self.state.model_copy(update=updates)
+
+    @staticmethod
+    def _content_key(event: ScopedEvent) -> str:
+        payload = [
+            event.thread,
+            event.target,
+            event.author,
+            event.kind,
+            event.text,
+            event.reply_to.model_dump() if event.reply_to else None,
+            [option.model_dump() for option in event.unit_options],
+        ]
+        return hashlib.sha256(
+            json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()
+        ).hexdigest()
+
+    def _resolved_event(self, event: ScopedEvent) -> ScopedEvent:
+        observation = self.state.observations.get(event.ref.event_id)
+        unit = observation.resolved_unit if observation else None
+        return (
+            event.model_copy(
+                update={"thread": unit.thread, "target": unit.target, "unit_ambiguous": False}
+            )
+            if unit
+            else event
+        )
 
     def observe_committed_event(self, event: ScopedEvent) -> bool:
         if (
@@ -175,6 +224,17 @@ class Controller:
             return False
         if old:
             self.observe_source_change(old.ref)
+        content_key = self._content_key(event)
+        duplicate = any(
+            key != event.ref.event_id and value == content_key
+            for key, value in self.state.content_keys.items()
+        )
+        self.state.content_keys[event.ref.event_id] = content_key
+        if duplicate:
+            self.state.seen[event.ref.event_id] = SeenSource(
+                revision=event.ref.revision, at=event.at
+            )
+            return False
         self.state.events[event.ref.event_id] = event
         self.state.seen[event.ref.event_id] = SeenSource(revision=event.ref.revision, at=event.at)
         self._prune()
@@ -214,6 +274,23 @@ class Controller:
                 for ref in (boundary.source, *boundary.dependencies)
             ):
                 self.state.boundaries.pop(boundary_key)
+            elif any(
+                ref.event_id == key and ref.revision <= invalid.revision
+                for ref in ((boundary.released_by,) if boundary.released_by else ())
+                + boundary.release_dependencies
+            ):
+                self.state.boundaries[boundary_key] = boundary.model_copy(
+                    update={"released_by": None, "release_dependencies": ()}
+                )
+        for attempt_key, attempt in list(self.state.seed_attempts.items()):
+            if (
+                attempt.response
+                and attempt.response.event_id == key
+                and attempt.response.revision <= invalid.revision
+            ):
+                self.state.seed_attempts[attempt_key] = attempt.model_copy(
+                    update={"response": None}
+                )
         for observation_key, observation in list(self.state.observations.items()):
             sources = (observation.snapshot.focus, *observation.snapshot.context)
             if observation.matching_self_anchor is not None:
@@ -230,8 +307,19 @@ class Controller:
                 )
             ):
                 del self.state.candidates[candidate_id]
+        self._refresh_releases()
 
     def _invalidate_observation(self, key: str) -> None:
+        for boundary_key, boundary in list(self.state.boundaries.items()):
+            if boundary.released_by and boundary.released_by.event_id == key:
+                self.state.boundaries[boundary_key] = boundary.model_copy(
+                    update={"released_by": None, "release_dependencies": ()}
+                )
+        for attempt_key, attempt in list(self.state.seed_attempts.items()):
+            if attempt.response and attempt.response.event_id == key:
+                self.state.seed_attempts[attempt_key] = attempt.model_copy(
+                    update={"response": None}
+                )
         observation = self.state.observations.pop(key, None)
         if observation is None:
             return
@@ -267,10 +355,36 @@ class Controller:
         ):
             return False
         for dimension, answer in observation.answers.items():
-            if dimension not in CRITERIA or set(answer.probabilities) != set(CRITERIA[dimension]):
+            options = (
+                {option.key for option in event.unit_options} | {"unknown"}
+                if dimension == "unit_selection" and event.unit_ambiguous
+                else set(CRITERIA.get(dimension, {}))
+            )
+            if not options or set(answer.probabilities) != options:
                 return False
+        if event.unit_ambiguous:
+            selection = observation.answers.get("unit_selection")
+            selected = observation.resolved_unit
+            if selected is not None and (
+                selected not in event.unit_options
+                or not _dimension_known(selection)
+                or selection.choice != selected.key
+                or sum(
+                    p == max(selection.probabilities.values())
+                    for p in selection.probabilities.values()
+                )
+                != 1
+            ):
+                return False
+        elif observation.resolved_unit is not None:
+            return False
         # Replace interpretation by source, not append another social event.
         self._invalidate_observation(key)
+        if observation.resolved_unit is not None:
+            unit = observation.resolved_unit
+            event = event.model_copy(
+                update={"thread": unit.thread, "target": unit.target, "unit_ambiguous": False}
+            )
         anchor = self.state.events.get(event.reply_to.event_id) if event.reply_to else None
         matching_anchor = (
             event.reply_to
@@ -289,6 +403,8 @@ class Controller:
         )
         self.state.candidates.pop(key, None)
         self.state.boundaries.pop(key, None)
+        if event.unit_ambiguous:
+            return True
         act = observation.answers.get("interaction_mark")
         info = observation.answers.get("information_state")
         floor = observation.answers.get("floor_state")
@@ -304,7 +420,11 @@ class Controller:
                 target=event.target,
                 group_wide=boundary.p("group_thread") >= 0.5,
                 dependencies=tuple(e.ref for e in snap.context),
+                author=event.author,
+                explicit_stop=act.p("ask_yuki_stop") >= 0.5,
             )
+        self._refresh_seed_responses()
+        self._refresh_releases()
         if self.state.consumed.get(key, 0) >= event.ref.revision:
             return True
         if not all(_dimension_known(answer) for answer in (act, info, floor)):
@@ -316,6 +436,17 @@ class Controller:
         if snap.kind != CandidateKind.CONVERSATION:
             fit = observation.answers.get("seed_fit")
             if not _dimension_known(fit) or fit.p("appropriate") < 0.5:
+                return True
+            fingerprint = self.state.content_keys.get(key, self._content_key(event))
+            if fingerprint in self.state.seed_claims:
+                return True
+            attempt = self.state.seed_attempts.get(self._unit_key(event.thread, event.target))
+            if (
+                attempt
+                and attempt.sent_at is not None
+                and attempt.response is None
+                and info.p("new") < 0.5
+            ):
                 return True
         value = 0.5 * (act.p("invite_yuki") + act.p("extend_yuki") + 0.6 * act.p("open_group"))
         value += 0.5 * (info.p("new") + 0.8 * info.p("refine"))
@@ -350,6 +481,9 @@ class Controller:
         return True
 
     def predict_continuation(self, event: ScopedEvent, *, now: float) -> bool:
+        event = self._resolved_event(event)
+        if event.unit_ambiguous:
+            return False
         if event.kind != "human" or event.reply_to is None or not self._valid(event.ref):
             return False
         # Only explicit source relationships within one established unit qualify.
@@ -394,12 +528,15 @@ class Controller:
         actions = []
         for obs in self.state.observations.values():
             event = self.state.events.get(obs.snapshot.focus.event_id)
+            if event is not None:
+                event = self._resolved_event(event)
             if (
                 event is not None
                 and event.thread == thread
                 and event.target == target
                 and self._valid(event.ref)
                 and event.kind == "human"
+                and not event.unit_ambiguous
             ):
                 actions.append((event.at, "human", event.ref.event_id, obs))
         for record in self.state.effects.values():
@@ -447,6 +584,7 @@ class Controller:
         for observation in self.state.observations.values():
             event = self.state.events.get(observation.snapshot.focus.event_id)
             if event is not None:
+                event = self._resolved_event(event)
                 units.add((event.thread, event.target))
         for record in self.state.effects.values():
             proposal = self.state.proposals.get(record.proposal_id)
@@ -489,6 +627,10 @@ class Controller:
             "message": TraceBaseline(at=boundary, value=self._trace("message", boundary, 150)),
             "compute": TraceBaseline(at=boundary, value=self._trace("compute", boundary, 180)),
             "activity": TraceBaseline(at=boundary, value=self._activity(boundary)),
+            "ratio_human": TraceBaseline(at=boundary, value=self._ratio_count("human", boundary)),
+            "ratio_message": TraceBaseline(
+                at=boundary, value=self._ratio_count("message", boundary)
+            ),
         }
         self._set(
             belief_baselines=dict(prepared[:64]),
@@ -499,16 +641,106 @@ class Controller:
 
     def _closed(self, event: ScopedEvent) -> bool:
         # Closing records persist independently of C decay; a newer source is not automatically
-        # a reopening. Host-vetted boundary release is intentionally required in this milestone.
+        # a reopening. Only a separately supported scoped invitation can release one.
         for boundary in self.state.boundaries.values():
-            if boundary.thread == event.thread and (
-                boundary.target == event.target or boundary.group_wide
+            if (
+                boundary.released_by is None
+                and boundary.thread == event.thread
+                and (boundary.target == event.target or boundary.group_wide)
             ):
                 return True
         return False
 
-    def rates(self, now: float) -> dict[str, float]:
-        raw = {}
+    def source_allowed(self, event: ScopedEvent) -> bool:
+        """Apply shared source/closure fences to a host's alternative admission path.
+
+        The event must already be committed here. This does not assert a semantic
+        opportunity or grant host permissions; it only prevents fallback from bypassing
+        retractions, ambiguous units, consumed sources, and persistent stop boundaries.
+        """
+        if event.scope != self.state.scope or not self._valid(event.ref):
+            return False
+        stored = self._resolved_event(self.state.events[event.ref.event_id])
+        return (
+            not stored.unit_ambiguous
+            and self.state.consumed.get(event.ref.event_id, 0) < event.ref.revision
+            and not self._closed(stored)
+        )
+
+    def _refresh_releases(self) -> None:
+        """A late stop re-score must not undo a subsequent verified reopening."""
+        for boundary_key, boundary in list(self.state.boundaries.items()):
+            original = self.state.seen.get(boundary.source.event_id)
+            if original is None:
+                continue
+            reopenings = []
+            for observation in self.state.observations.values():
+                raw = self.state.events.get(observation.snapshot.focus.event_id)
+                if raw is None:
+                    continue
+                event = self._resolved_event(raw)
+                act = observation.answers.get("interaction_mark")
+                scope = observation.answers.get("boundary_scope")
+                if (
+                    event.kind != "human"
+                    or event.unit_ambiguous
+                    or event.at <= original.at
+                    or event.thread != boundary.thread
+                    or (event.target != boundary.target and not boundary.group_wide)
+                    or not _dimension_known(act)
+                    or act.p("invite_yuki") < 0.8
+                    or not _dimension_known(scope)
+                ):
+                    continue
+                if boundary.explicit_stop and event.author != boundary.author:
+                    continue
+                if not boundary.group_wide and event.author != boundary.author:
+                    continue
+                required = "group_thread" if boundary.group_wide else "target_thread"
+                if scope.p(required) >= 0.8 or (
+                    not boundary.group_wide and scope.p("group_thread") >= 0.8
+                ):
+                    reopenings.append((event.at, event.ref.event_id, event, observation))
+            if reopenings:
+                _, _, event, observation = max(reopenings, key=lambda item: item[:2])
+                self.state.boundaries[boundary_key] = boundary.model_copy(
+                    update={
+                        "released_by": event.ref,
+                        "release_dependencies": observation.snapshot.context,
+                    }
+                )
+
+    def _refresh_seed_responses(self) -> None:
+        """Observe replies by event time, even when the send receipt arrives late."""
+        for attempt_key, attempt in list(self.state.seed_attempts.items()):
+            if attempt.sent_at is None:
+                continue
+            replies = []
+            for observation in self.state.observations.values():
+                raw = self.state.events.get(observation.snapshot.focus.event_id)
+                if raw is None:
+                    continue
+                event = self._resolved_event(raw)
+                act = observation.answers.get("interaction_mark")
+                if (
+                    event.kind == "human"
+                    and not event.unit_ambiguous
+                    and event.at > attempt.sent_at
+                    and event.thread == attempt.thread
+                    and event.target == attempt.target
+                    and event.author == attempt.target
+                    and _dimension_known(act)
+                    and act.p("invite_yuki") + act.p("extend_yuki") >= 0.5
+                ):
+                    replies.append(event)
+            if replies:
+                response = max(replies, key=lambda event: (event.at, event.ref.event_id))
+                self.state.seed_attempts[attempt_key] = attempt.model_copy(
+                    update={"response": response.ref}
+                )
+
+    def _eligible_groups(self, now: float) -> dict[str, list[Candidate]]:
+        groups: dict[tuple, list[Candidate]] = {}
         for key, candidate in self.state.candidates.items():
             support = candidate.support
             if (
@@ -527,12 +759,43 @@ class Controller:
                 or self.state.consumed.get(key, 0) >= candidate.event.ref.revision
             ):
                 continue
+            if candidate.kind != CandidateKind.CONVERSATION:
+                unit_key = self._unit_key(candidate.event.thread, candidate.event.target)
+                if len(self.state.seed_claims) >= 1024 or (
+                    len(self.state.seed_attempts) >= 64 and unit_key not in self.state.seed_attempts
+                ):
+                    continue
+                fingerprint = self.state.content_keys.get(key)
+                attempt = self.state.seed_attempts.get(unit_key)
+                info = self.state.observations[support.basis.event_id].answers.get(
+                    "information_state"
+                )
+                if fingerprint in self.state.seed_claims or (
+                    attempt
+                    and attempt.sent_at is not None
+                    and attempt.response is None
+                    and (info is None or info.p("new") < 0.5)
+                ):
+                    continue
+            unit = (candidate.kind, candidate.event.thread, candidate.event.target)
+            groups.setdefault(unit, []).append(candidate)
+        return {
+            max(items, key=lambda c: (c.event.at, c.event.ref.event_id)).event.ref.event_id: items
+            for items in groups.values()
+        }
+
+    def rates(self, now: float) -> dict[str, float]:
+        raw = {}
+        for key, members in self._eligible_groups(now).items():
+            candidate = self.state.candidates[key]
             b = self.belief(candidate.event.thread, candidate.event.target, now)
             tau = {"conversation": 90, "recall": 3600, "contact": 1800}[candidate.kind.value]
-            x = dynamics.source_attention(
-                candidate.value.value,
-                now - candidate.event.at,
-                now - max(support.issued_at, candidate.event.at),
+            x = dynamics.aggregate_attention(
+                [
+                    (member.value.value, member.event.at, member.support.issued_at)
+                    for member in members
+                ],
+                now,
                 tau,
             )
             speech = self._trace("message", now, 150)
@@ -541,9 +804,10 @@ class Controller:
             last_human_fragment = max(
                 (
                     event.at
-                    for event in self.state.events.values()
+                    for event in (self._resolved_event(e) for e in self.state.events.values())
                     if event.scope == self.state.scope
                     and event.kind == "human"
+                    and not event.unit_ambiguous
                     and event.thread == candidate.event.thread
                     and event.target == candidate.event.target
                     and event.at <= now
@@ -551,11 +815,17 @@ class Controller:
                 ),
                 default=candidate.event.at,
             )
-            self.state.attentions[key] = x
+            for member in members:
+                self.state.attentions[member.event.ref.event_id] = dynamics.source_attention(
+                    member.value.value,
+                    now - member.event.at,
+                    now - max(member.support.issued_at, member.event.at),
+                    tau,
+                )
             raw[key] = dynamics.rate(
                 b,
                 x,
-                support.strength(now),
+                min(member.support.strength(now) for member in members),
                 candidate.floor.value,
                 now - last_human_fragment,
                 kind=candidate.kind.value,
@@ -563,9 +833,31 @@ class Controller:
                 compute=compute,
                 activity=activity,
                 willingness=self._willingness(now),
+                speech_ratio=self.speech_ratio(now),
             )
         denominator = 1 + sum(r for r, _ in raw.values())
         return {key: r * factor / denominator for key, (r, factor) in raw.items()}
+
+    def _ratio_count(self, kind: str, now: float) -> float:
+        key = "ratio_" + kind
+        base = self.state.trace_baselines.get(key)
+        value = base.value * math.exp(-(now - base.at) / 120) if base and now >= base.at else 0.0
+        times = (
+            [e.at for e in self.state.events.values() if e.kind == "human"]
+            if kind == "human"
+            else [
+                record.effect.at
+                for record in self.state.effects.values()
+                if record.effect.kind == "message"
+            ]
+        )
+        return value + sum(
+            math.exp(-(now - at) / 120) for at in times if self.state.replay_after < at <= now
+        )
+
+    def speech_ratio(self, now: float) -> float:
+        own, human = self._ratio_count("message", now), self._ratio_count("human", now)
+        return own / (own + human) if own + human else 0.0
 
     def _trace(self, kind: str, now: float, tau: float) -> float:
         events = sorted(
@@ -614,6 +906,24 @@ class Controller:
             self._set(engagement_report=report)
         return True
 
+    def observe_committed_effect(self, run_ref: str, effect: Effect) -> bool:
+        """Record a real non-semantic host effect without fabricating a proposal.
+
+        Self ledger events are anchors only. Hosts use the same logical effect ID
+        here and in semantic feedback when those describe the same actual action.
+        This path contributes to scope traces, not target-specific belief changes.
+        """
+        if not run_ref:
+            raise ValueError("effect_run_required")
+        old = self.state.effects.get(effect.effect_id)
+        if old is not None:
+            return old.run_ref == run_ref and old.effect == effect
+        self.state.effects[effect.effect_id] = RecordedEffect(
+            proposal_id=f"host:{run_ref}", run_ref=run_ref, effect=effect
+        )
+        self._prune()
+        return True
+
     def _willingness(self, now: float) -> float:
         last = self.state.engagement_report
         if last is None or last.at > now or last.delta.engage is None:
@@ -655,6 +965,7 @@ class Controller:
             return None
         key = self.rng.choices(list(rates), weights=list(rates.values()))[0]
         candidate = self.state.candidates[key]
+        members = self._eligible_groups(now)[key]
         proposal = Proposal(
             proposal_id=str(uuid4()),
             scope=self.state.scope,
@@ -662,10 +973,14 @@ class Controller:
             kind=candidate.kind,
             thread=candidate.event.thread,
             target_hint=candidate.event.target,
-            sources=(candidate.event.ref,),
+            sources=tuple(member.event.ref for member in members),
             support=candidate.support,
+            supports=tuple(member.support for member in members),
+            source_fingerprints=tuple(
+                self.state.content_keys[member.event.ref.event_id] for member in members
+            ),
             created_at=now,
-            expires_at=candidate.support.valid_until,
+            expires_at=min(member.support.valid_until for member in members),
         )
         self.state.proposals[proposal.proposal_id] = proposal
         self._set(pending=proposal.proposal_id, hazard=0, threshold=self.rng.expovariate(1))
@@ -695,11 +1010,11 @@ class Controller:
             incoming_effects[effect.effect_id] = effect
         if any(
             effect.effect_id in self.state.effects
-            and self.state.effects[effect.effect_id]
-            != RecordedEffect(
-                proposal_id=proposal.proposal_id,
-                run_ref=feedback.run_ref,
-                effect=effect,
+            and (
+                self.state.effects[effect.effect_id].run_ref != feedback.run_ref
+                or self.state.effects[effect.effect_id].effect != effect
+                or self.state.effects[effect.effect_id].proposal_id
+                not in {proposal.proposal_id, f"host:{feedback.run_ref}"}
             )
             for effect in incoming_effects.values()
         ):
@@ -725,6 +1040,44 @@ class Controller:
                 )
             if old is None or old.outcome in {"busy", "rejected"}:
                 self._set(last_accepted=max(self.state.last_accepted, feedback.at))
+            if proposal.kind != CandidateKind.CONVERSATION:
+                unit = self._unit_key(proposal.thread, proposal.target_hint)
+                fingerprints = proposal.source_fingerprints
+                for fingerprint in fingerprints:
+                    if fingerprint:
+                        self.state.seed_claims[fingerprint] = feedback.at
+                attempt = self.state.seed_attempts.get(unit)
+                if (
+                    attempt is None
+                    or attempt.run_ref == feedback.run_ref
+                    or proposal.created_at > attempt.at
+                ):
+                    sent = [
+                        effect.at
+                        for effect in incoming_effects.values()
+                        if effect.kind == "message"
+                        and proposal.target_hint in effect.actual_targets
+                    ]
+                    self.state.seed_attempts[unit] = SeedAttempt(
+                        run_ref=feedback.run_ref,
+                        proposal_id=proposal.proposal_id,
+                        thread=proposal.thread,
+                        target=proposal.target_hint,
+                        kind=proposal.kind,
+                        fingerprints=fingerprints,
+                        at=proposal.created_at,
+                        sent_at=max(sent)
+                        if sent
+                        else (
+                            attempt.sent_at
+                            if attempt and attempt.run_ref == feedback.run_ref
+                            else None
+                        ),
+                        response=attempt.response
+                        if attempt and attempt.run_ref == feedback.run_ref
+                        else None,
+                    )
+        self._refresh_seed_responses()
         if self.state.pending == proposal.proposal_id and feedback.outcome != "accepted":
             self._set(pending=None)
         return True
@@ -758,9 +1111,20 @@ class Controller:
         while len(self.state.candidates) > 32:
             key = min(self.state.candidates, key=lambda k: self.state.candidates[k].event.at)
             self.state.candidates.pop(key)
+        boundary_refs = {
+            ref.event_id
+            for boundary in self.state.boundaries.values()
+            for ref in (
+                boundary.source,
+                *boundary.dependencies,
+                *((boundary.released_by,) if boundary.released_by else ()),
+                *boundary.release_dependencies,
+            )
+        }
         for key, seen in list(self.state.seen.items()):
-            if seen.at < cutoff and key not in self.state.boundaries:
+            if seen.at < cutoff and key not in boundary_refs:
                 self.state.seen.pop(key)
+                self.state.content_keys.pop(key, None)
         for mapping in (self.state.consumed, self.state.invalidated):
             for key in list(mapping):
                 if key not in self.state.seen and key not in self.state.boundaries:

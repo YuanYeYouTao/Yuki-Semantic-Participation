@@ -54,7 +54,12 @@ class JevObserver:
             {
                 "model": self.model,
                 "state": self._semantic_state(snapshot),
-                "questions": questions(seed=snapshot.kind != CandidateKind.CONVERSATION),
+                "questions": questions(
+                    seed=snapshot.kind != CandidateKind.CONVERSATION,
+                    unit_options=snapshot.focus.unit_options
+                    if snapshot.focus.unit_ambiguous
+                    else (),
+                ),
             },
             ensure_ascii=False,
             separators=(",", ":"),
@@ -75,7 +80,13 @@ class JevObserver:
         }
         threads = {
             name: f"t{index}"
-            for index, name in enumerate(dict.fromkeys(event.thread for event in events), start=1)
+            for index, name in enumerate(
+                dict.fromkeys(
+                    [event.thread for event in events]
+                    + [option.thread for option in snapshot.focus.unit_options]
+                ),
+                start=1,
+            )
         }
         missing_references: dict[tuple[str, int], str] = {}
 
@@ -100,12 +111,23 @@ class JevObserver:
                     result["reply_to_unavailable"] = True
             return result
 
-        return {
+        state = {
             "focus": project(snapshot.focus),
             "context": [project(event) for event in snapshot.context],
             "focus_age_seconds": round(snapshot.issued_at - snapshot.focus.at, 3),
             "omitted_context": snapshot.omitted_context,
         }
+        if snapshot.focus.unit_ambiguous:
+            state["unit_options"] = [
+                {
+                    "key": option.key,
+                    "thread": threads[option.thread],
+                    "target": option.target,
+                    "label": option.label,
+                }
+                for option in snapshot.focus.unit_options
+            ]
+        return state
 
     def prepare_snapshot(self, snapshot: Snapshot) -> Snapshot:
         """Bound the entire UTF-8 request, not estimated tokens.
@@ -138,7 +160,10 @@ class JevObserver:
 
     async def evaluate(self, snapshot: Snapshot) -> Observation:
         snapshot = self.prepare_snapshot(snapshot)
-        rubric = questions(seed=snapshot.kind != CandidateKind.CONVERSATION)
+        rubric = questions(
+            seed=snapshot.kind != CandidateKind.CONVERSATION,
+            unit_options=snapshot.focus.unit_options if snapshot.focus.unit_ambiguous else (),
+        )
         encoded = self._encode_request(snapshot)
         result = await self._client.post(
             "https://api.typesafe.ai/v1/systemone",
@@ -174,6 +199,24 @@ class JevObserver:
         usage = data.get("usage", {})
         if not isinstance(usage, dict):
             raise ValueError("semantic_usage_invalid")
+        selection = answers.get("unit_selection")
+        resolved = None
+        if (
+            selection
+            and selection.choice != "unknown"
+            and sum(
+                p == max(selection.probabilities.values()) for p in selection.probabilities.values()
+            )
+            == 1
+        ):
+            resolved = next(
+                (
+                    option
+                    for option in snapshot.focus.unit_options
+                    if option.key == selection.choice
+                ),
+                None,
+            )
         return Observation(
             observation_id=str(uuid4()),
             snapshot=snapshot,
@@ -186,6 +229,7 @@ class JevObserver:
             input_tokens=usage.get("input_tokens"),
             output_tokens=usage.get("output_tokens"),
             request_bytes=len(encoded),
+            resolved_unit=resolved,
         )
 
     async def aclose(self) -> None:

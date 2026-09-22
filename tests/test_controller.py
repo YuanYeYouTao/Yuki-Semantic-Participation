@@ -1,5 +1,6 @@
 """Synthetic V6 invariants, not real Jev or QQ acceptance."""
 
+import hashlib
 import math
 import random
 
@@ -30,7 +31,7 @@ def event(key="e1", at=100, **kwargs):
         thread="topic",
         author="A",
         target="A",
-        text="合成材料",
+        text=f"合成材料 {hashlib.sha256(key.encode()).hexdigest()[:8]}",
         **kwargs,
     )
 
@@ -130,7 +131,7 @@ def test_closed_boundary_survives_window_and_silence():
     c.advance(1000, controller_epoch=0, host_available=False)
     fresh = event("new", at=1000)
     c.observe_committed_event(fresh)
-    c.apply_semantic_observation(observation(fresh))
+    c.apply_semantic_observation(observation(fresh, act="open_group"))
     assert not c.rates(1001)
     assert c.state.boundaries
 

@@ -31,7 +31,7 @@ def source(key="focus", *, at=100, revision=1, **changes):
         thread="topic",
         author="A",
         target="A",
-        text="Synthetic review source",
+        text=f"Synthetic review source {key}",
         at=at,
     ).model_copy(update=changes)
 
@@ -352,7 +352,7 @@ def test_pending_observation_survives_real_snapshot_roundtrip(tmp_path):
 def test_legal_bounded_source_volume_remains_checkpointable(tmp_path):
     c = controller()
     for index in range(30):
-        event = source(str(index), at=100 + index, text="x" * 8000)
+        event = source(str(index), at=100 + index, text=f"{index}:".ljust(8000, "x"))
         context = tuple(c.state.events.values())[-6:]
         assert c.observe_committed_event(event)
         assert c.apply_semantic_observation(observation(event, sequence=index + 1, context=context))
@@ -394,7 +394,9 @@ def test_capacity_compaction_preserves_belief_with_one_monotonic_time_boundary()
     assert c.apply_semantic_observation(score)
     initial = c.belief("topic", "A", 100)
     for index in range(1, 24):
-        assert c.observe_committed_event(source(str(index), at=100 + index, text="x" * 12000))
+        assert c.observe_committed_event(
+            source(str(index), at=100 + index, text=f"{index}:".ljust(12000, "x"))
+        )
 
     assert c.state.replay_after >= 100
     assert all(e.at > c.state.replay_after for e in c.state.events.values())
@@ -410,7 +412,7 @@ def test_capacity_compaction_keeps_equal_timestamp_actions_on_the_same_side():
     assert c.apply_semantic_observation(observation(event))
     initial = c.belief("topic", "A", 100)
     for index in range(1, 22):
-        assert c.observe_committed_event(source(str(index), text="x" * 12000))
+        assert c.observe_committed_event(source(str(index), text=f"{index}:".ljust(12000, "x")))
 
     assert c.state.replay_after == 100
     assert not c.state.events
@@ -593,7 +595,7 @@ def test_identical_effect_ids_within_one_receipt_count_once():
 def test_activity_survives_source_capacity_compaction_and_restart():
     c = controller()
     for index in range(21):
-        assert c.observe_committed_event(source(str(index), text="x" * 12000))
+        assert c.observe_committed_event(source(str(index), text=f"{index}:".ljust(12000, "x")))
     before = c._activity(100)
     assert c.observe_committed_event(source("capacity-overflow", text="x" * 12000))
 

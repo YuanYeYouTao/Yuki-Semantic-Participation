@@ -26,6 +26,13 @@ class SourceRef(Record):
     revision: int = Field(ge=1)
 
 
+class HostUnitOption(Record):
+    key: str = Field(min_length=1, max_length=64)
+    thread: str = Field(min_length=1, max_length=128)
+    target: str = Field(min_length=1, max_length=128)
+    label: str = Field(default="", max_length=200)
+
+
 class ScopedEvent(Record):
     scope: Scope
     ref: SourceRef
@@ -36,6 +43,15 @@ class ScopedEvent(Record):
     at: Timestamp
     kind: Literal["human", "self", "seed"] = "human"
     reply_to: SourceRef | None = None
+    unit_ambiguous: bool = False
+    unit_options: tuple[HostUnitOption, ...] = Field(default=(), max_length=16)
+
+    @model_validator(mode="after")
+    def valid_options(self) -> ScopedEvent:
+        keys = [option.key for option in self.unit_options]
+        if len(keys) != len(set(keys)) or "unknown" in keys:
+            raise ValueError("invalid_unit_options")
+        return self
 
 
 class CandidateKind(StrEnum):
@@ -93,6 +109,7 @@ class Observation(Record):
     output_tokens: int | None = Field(default=None, ge=0)
     attempt_count: int = Field(default=1, ge=1)
     request_bytes: int | None = Field(default=None, ge=0)
+    resolved_unit: HostUnitOption | None = None
 
 
 class Estimate(Record):
@@ -132,6 +149,8 @@ class Proposal(Record):
     support: Support
     created_at: Timestamp
     expires_at: Timestamp
+    supports: tuple[Support, ...] = Field(default=(), max_length=32)
+    source_fingerprints: tuple[str, ...] = Field(default=(), max_length=32)
 
 
 class Effect(Record):

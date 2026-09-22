@@ -56,6 +56,38 @@ def stimulus(sources: list[tuple[float, float]], now: float, tau: float) -> floa
     return 1 - math.prod(1 - w * math.exp(-max(0, now - at) / tau) for w, at in sources)
 
 
+def aggregate_attention(sources: list[tuple[float, float, float]], now: float, tau: float) -> float:
+    """Bounded convolution of the actual product stimulus, with source activation times.
+
+    Single-source response is exact. Multiple sources use midpoint integration at
+    0.125 seconds; the discarded response tail is at most exp(-20), below 2.1e-9.
+    """
+    if not sources:
+        return 0.0
+    if len(sources) == 1:
+        weight, at, start = sources[0]
+        return source_attention(weight, now - at, now - max(at, start), tau)
+    start = max(min(max(at, issued) for _, at, issued in sources), now - 80)
+    if start >= now:
+        return 0.0
+    boundaries = sorted(
+        {
+            start,
+            now,
+            *(max(at, issued) for _, at, issued in sources if start < max(at, issued) < now),
+        }
+    )
+    value = 0.0
+    for left, right in zip(boundaries, boundaries[1:], strict=False):
+        count = max(1, math.ceil((right - left) / 0.125))
+        dt = (right - left) / count
+        for index in range(count):
+            t = left + (index + 0.5) * dt
+            u = stimulus([(w, at) for w, at, issued in sources if max(at, issued) <= t], t, tau)
+            value = attention(value, u, dt)
+    return value
+
+
 def rate(
     b: Belief,
     x: float,
@@ -68,6 +100,9 @@ def rate(
     compute: float = 0,
     activity: float = 0,
     willingness: float = 0,
+    speech_ratio: float = 0,
+    ratio_reference: float = 0.35,
+    ratio_cost: float = 0.1,
 ) -> tuple[float, float]:
     threshold = {"conversation": 0.25, "recall": 0.30, "contact": 0.35}[kind]
     value = (
@@ -80,6 +115,7 @@ def rate(
         - 0.08 * speech
         - 0.04 * compute
         - 0.02 * activity
+        - ratio_cost * max(0, speech_ratio - ratio_reference)
     )
     r = support * max(0, value) ** 2
     opportunity = (1 - math.exp(-max(0, gap) / 4)) * (0.1 + 0.9 * floor)
