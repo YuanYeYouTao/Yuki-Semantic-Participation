@@ -277,6 +277,34 @@ def test_host_receipt_then_semantic_feedback_share_exactly_one_actual_effect():
     assert c._trace("message", 105, 150) == 0.25
 
 
+def test_legacy_ambiguous_source_keeps_all_shared_boundaries_without_observer():
+    c = controller()
+    ambiguous = source(
+        "ambiguous-legacy",
+        at=105,
+        thread="new-topic",
+        unit_ambiguous=True,
+        unit_options=(HostUnitOption(key="old", thread="topic", target="A"),),
+    )
+    assert c.observe_committed_event(ambiguous)
+    assert not c.source_allowed(ambiguous)
+    assert c.legacy_source_allowed(ambiguous)
+    stop = source("stop")
+    assert c.observe_committed_event(stop)
+    assert c.apply_semantic_observation(observation(stop, act="ask_yuki_stop"))
+    assert not c.legacy_source_allowed(ambiguous)
+    c.observe_source_change(stop.ref)
+    assert c.legacy_source_allowed(ambiguous)
+    c.state.consumed[ambiguous.ref.event_id] = 1
+    assert not c.legacy_source_allowed(ambiguous)
+    revised = ambiguous.model_copy(update={"ref": ambiguous.ref.model_copy(update={"revision": 2})})
+    assert c.observe_committed_event(revised)
+    assert not c.legacy_source_allowed(ambiguous)
+    assert c.legacy_source_allowed(revised)
+    c.observe_source_change(revised.ref)
+    assert not c.legacy_source_allowed(revised)
+
+
 @pytest.mark.asyncio
 async def test_observer_dynamic_unit_choice_maps_to_host_object_without_creating_ids():
     option = HostUnitOption(
@@ -306,3 +334,26 @@ async def test_observer_dynamic_unit_choice_maps_to_host_object_without_creating
         result = await observer.evaluate(snapshot)
     assert result.resolved_unit == option
     assert result.snapshot == snapshot
+
+
+@pytest.mark.parametrize("anchor_target, expected_match", [("group", True), ("B", False)])
+def test_real_reply_to_group_self_speech_proves_reciprocity_without_person_target(
+    anchor_target, expected_match
+):
+    c = controller()
+    anchor = source("self-group-anchor", at=100, kind="self", target=anchor_target)
+    human = source("human-response", at=110, reply_to=anchor.ref)
+    assert c.observe_committed_event(anchor)
+    assert c.observe_committed_event(human)
+    assert c.apply_semantic_observation(observation(human, act="extend_yuki", context=(anchor,)))
+    assert bool(c.state.observations[human.ref.event_id].matching_self_anchor) is expected_match
+    assert c.state.events[anchor.ref.event_id].target == anchor_target
+    assert c.resolved_unit(human) == human
+    assert (
+        c.resolved_unit(
+            human.model_copy(update={"ref": human.ref.model_copy(update={"revision": 2})})
+        )
+        is None
+    )
+    c.observe_source_change(human.ref)
+    assert c.resolved_unit(human) is None

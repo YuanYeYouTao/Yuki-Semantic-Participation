@@ -222,3 +222,34 @@ async def test_preparation_cannot_replace_focus():
     assert not await session.evaluate_due(108, active=True)
     assert session.health.failures == 1
     assert session.queue.pending
+
+
+@pytest.mark.asyncio
+async def test_provider_fallback_stays_latched_after_expiry_and_restart_until_real_unknown():
+    class Unavailable:
+        async def evaluate(self, snapshot):
+            raise httpx.ConnectError("synthetic")
+
+    class Unknown:
+        async def evaluate(self, snapshot):
+            return observation(snapshot.focus, act="unknown").model_copy(
+                update={"snapshot": snapshot, "received_at": snapshot.issued_at}
+            )
+
+    session = ObservationSession(controller(), Unavailable())
+    session.observe(event())
+    for at in (108, 138, 198):
+        if at == 198:
+            session.observe(event("fresh-before-third-failure", at=180))
+        assert not await session.evaluate_due(at, active=True)
+    assert session.health.fallback_required(199, pending=True)
+    assert not await session.evaluate_due(800, active=False)
+    assert not session.queue.pending
+    assert session.health.fallback_required(800, pending=False)
+    session.checkpoint()
+    restored = ObservationSession(Controller.restore(session.controller.state, 801), Unknown())
+    assert restored.health.fallback_required(801, pending=False)
+    restored.observe(event("fresh-after-outage", at=802))
+    assert await restored.evaluate_due(840, active=False)
+    assert not restored.health.fallback_required(840, pending=False)
+    assert not restored.controller.state.candidates

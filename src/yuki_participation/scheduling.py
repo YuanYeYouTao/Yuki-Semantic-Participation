@@ -193,12 +193,14 @@ class ProviderHealth:
     failed_since: float | None = None
     last_success: float | None = None
     configuration_valid: bool = True
+    degraded: bool = False
 
     def success(self, now: float) -> None:
         # Legitimate unknown is a transport success, not a reason to fall back.
         self.failures = 0
         self.failed_since = None
         self.last_success = now
+        self.degraded = False
 
     def failure(self, now: float, *, configuration_error: bool = False) -> None:
         self.failures += 1
@@ -208,10 +210,9 @@ class ProviderHealth:
             self.configuration_valid = False
 
     def fallback_required(self, now: float, *, pending: bool) -> bool:
-        return not self.configuration_valid or (
-            pending
-            and (
-                self.failures >= 3
-                or (self.failed_since is not None and now - self.failed_since >= 180)
-            )
-        )
+        if self.failures >= 3 or (
+            pending and self.failed_since is not None and now - self.failed_since >= 180
+        ):
+            self.degraded = True
+        # Queue expiry is not proof of recovery; only a real successful evaluation is.
+        return not self.configuration_valid or self.degraded

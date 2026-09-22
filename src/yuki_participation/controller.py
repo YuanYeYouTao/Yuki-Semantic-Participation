@@ -205,6 +205,13 @@ class Controller:
             else event
         )
 
+    def resolved_unit(self, event: ScopedEvent) -> ScopedEvent | None:
+        """Return the stored, current Host unit once resolved; never invent an ID."""
+        if event.scope != self.state.scope or not self._valid(event.ref):
+            return None
+        stored = self._resolved_event(self.state.events[event.ref.event_id])
+        return None if stored.unit_ambiguous else stored
+
     def observe_committed_event(self, event: ScopedEvent) -> bool:
         if (
             event.scope != self.state.scope
@@ -393,7 +400,7 @@ class Controller:
                 and anchor.ref == event.reply_to
                 and anchor.kind == "self"
                 and anchor.thread == event.thread
-                and anchor.target == event.target
+                and anchor.target in {event.target, "group"}
                 and anchor.at <= event.at
             )
             else None
@@ -667,6 +674,29 @@ class Controller:
             and not self._closed(stored)
         )
 
+    def legacy_source_allowed(self, event: ScopedEvent) -> bool:
+        """Share provenance and stop fences without requiring a disabled observer.
+
+        Ambiguous legacy material does not acquire a semantic resolution. Every
+        Host-offered unit must respect its existing boundary before legacy may
+        independently consider the event under its own participation policy.
+        """
+        if (
+            event.scope != self.state.scope
+            or not self._valid(event.ref)
+            or self.state.consumed.get(event.ref.event_id, 0) >= event.ref.revision
+        ):
+            return False
+        stored = self._resolved_event(self.state.events[event.ref.event_id])
+        if not stored.unit_ambiguous:
+            return not self._closed(stored)
+        choices = [stored]
+        choices.extend(
+            stored.model_copy(update={"thread": option.thread, "target": option.target})
+            for option in stored.unit_options
+        )
+        return all(not self._closed(choice) for choice in choices)
+
     def _refresh_releases(self) -> None:
         """A late stop re-score must not undo a subsequent verified reopening."""
         for boundary_key, boundary in list(self.state.boundaries.items()):
@@ -895,7 +925,9 @@ class Controller:
         return value * math.exp(-(now - last) / tau)
 
     def observe_self_report(self, report: SelfReport) -> bool:
-        if report.run_ref not in self.state.feedback:
+        if report.run_ref not in self.state.feedback and not any(
+            record.run_ref == report.run_ref for record in self.state.effects.values()
+        ):
             return False
         old = self.state.self_reports.get(report.run_ref)
         if old and (report.sequence <= old.sequence or report.response_id == old.response_id):
