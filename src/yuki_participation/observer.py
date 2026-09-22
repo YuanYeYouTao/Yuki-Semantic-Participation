@@ -67,7 +67,7 @@ class JevObserver:
         ).encode("utf-8")
 
     @staticmethod
-    def _semantic_state(snapshot: Snapshot) -> dict:
+    def _semantic_state(snapshot: Snapshot) -> dict[str, object]:
         """Project only evidence needed to interpret speech, with neutral local references.
 
         Canonical IDs/revisions, scope/generation, request sequence and absolute timestamps
@@ -90,8 +90,8 @@ class JevObserver:
         }
         missing_references: dict[tuple[str, int], str] = {}
 
-        def project(event: ScopedEvent) -> dict:
-            result = {
+        def project(event: ScopedEvent) -> dict[str, object]:
+            result: dict[str, object] = {
                 "id": references[(event.ref.event_id, event.ref.revision)],
                 "author": event.author,
                 "kind": event.kind,
@@ -111,7 +111,7 @@ class JevObserver:
                     result["reply_to_unavailable"] = True
             return result
 
-        state = {
+        state: dict[str, object] = {
             "focus": project(snapshot.focus),
             "context": [project(event) for event in snapshot.context],
             "focus_age_seconds": round(snapshot.issued_at - snapshot.focus.at, 3),

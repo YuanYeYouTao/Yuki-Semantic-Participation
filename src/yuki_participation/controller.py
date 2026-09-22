@@ -6,6 +6,7 @@ import hashlib
 import json
 import math
 import random
+from typing import Literal, TypeGuard
 from uuid import uuid4
 
 from pydantic import Field
@@ -30,7 +31,7 @@ from .rubric import CRITERIA, REVISION
 from .self_report import SelfReport
 
 
-def _dimension_known(answer: Choice | None) -> bool:
+def _dimension_known(answer: Choice | None) -> TypeGuard[Choice]:
     """Unknown-winning distributions stay diagnostic/soft evidence, not eligibility.
 
     Ties involving unknown are insufficient too. Usable probabilities remain unchanged;
@@ -131,6 +132,12 @@ class StoredObservation(Record):
                 sequence=observation.snapshot.sequence,
             ),
         )
+
+
+type BeliefAction = (
+    tuple[float, Literal["human"], str, StoredObservation]
+    | tuple[float, Literal["self"], str, RecordedEffect]
+)
 
 
 class State(Record):
@@ -434,7 +441,7 @@ class Controller:
         self._refresh_releases()
         if self.state.consumed.get(key, 0) >= event.ref.revision:
             return True
-        if not all(_dimension_known(answer) for answer in (act, info, floor)):
+        if not (_dimension_known(act) and _dimension_known(info) and _dimension_known(floor)):
             return True
         if act.p("close_topic") + act.p("ask_yuki_stop") >= 0.5:
             return True
@@ -531,8 +538,8 @@ class Controller:
     def _unit_key(thread: str, target: str) -> str:
         return json.dumps((thread, target), ensure_ascii=False, separators=(",", ":"))
 
-    def _belief_actions(self, thread: str, target: str) -> list[tuple]:
-        actions = []
+    def _belief_actions(self, thread: str, target: str) -> list[BeliefAction]:
+        actions: list[BeliefAction] = []
         for obs in self.state.observations.values():
             event = self.state.events.get(obs.snapshot.focus.event_id)
             if event is not None:
@@ -565,11 +572,11 @@ class Controller:
         actions = self._belief_actions(thread, target)
         b = baseline.value if baseline else dynamics.IDLE
         last = baseline.at if baseline else min((a[0] for a in actions), default=now)
-        for at, kind, _, value in sorted(actions, key=lambda x: x[:3]):
+        for at, _kind, _, value in sorted(actions, key=lambda x: x[:3]):
             if at > now or at <= self.state.replay_after:
                 continue
             b = dynamics.decay(b, at - last)
-            if kind == "self":
+            if isinstance(value, RecordedEffect):
                 b = dynamics.self_expression(b)
             else:
                 act = value.answers.get("interaction_mark")
@@ -770,7 +777,7 @@ class Controller:
                 )
 
     def _eligible_groups(self, now: float) -> dict[str, list[Candidate]]:
-        groups: dict[tuple, list[Candidate]] = {}
+        groups: dict[tuple[CandidateKind, str, str], list[Candidate]] = {}
         for key, candidate in self.state.candidates.items():
             support = candidate.support
             if (

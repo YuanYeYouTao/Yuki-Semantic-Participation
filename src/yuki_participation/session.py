@@ -8,8 +8,10 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import asdict
+from typing import cast
 
 import httpx
+from pydantic import TypeAdapter
 
 from .controller import Controller
 from .models import CandidateKind, ScopedEvent
@@ -30,13 +32,26 @@ class ObservationSession:
         if checkpoint:
             if checkpoint.get("version") != 1:
                 raise ValueError("unsupported_observer_checkpoint")
-            self.queue.restore(
-                checkpoint["queue"], now=controller.state.now, events=controller.state.events
-            )
-            self.health = ProviderHealth(**checkpoint["health"])
-            self.retry_after = float(checkpoint["retry_after"])
-            self.last_error = checkpoint["last_error"]
-            self.local_rejections = list(checkpoint.get("local_rejections", []))[-64:]
+            queue = checkpoint.get("queue")
+            retry_after = checkpoint.get("retry_after")
+            last_error = checkpoint.get("last_error")
+            rejections = checkpoint.get("local_rejections", [])
+            if (
+                not isinstance(queue, dict)
+                or not isinstance(retry_after, (int, float))
+                or (last_error is not None and not isinstance(last_error, str))
+                or not isinstance(rejections, list)
+                or any(
+                    not isinstance(item, dict) or any(not isinstance(key, str) for key in item)
+                    for item in rejections
+                )
+            ):
+                raise ValueError("invalid_observer_checkpoint")
+            self.queue.restore(queue, now=controller.state.now, events=controller.state.events)
+            self.health = TypeAdapter(ProviderHealth).validate_python(checkpoint.get("health"))
+            self.retry_after = float(retry_after)
+            self.last_error = last_error
+            self.local_rejections = cast(list[dict[str, object]], rejections[-64:])
         # Existing observations must never be mistaken for newer responses after a restart.
         self.queue.sequence = max(
             self.queue.sequence,

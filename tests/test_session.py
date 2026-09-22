@@ -253,3 +253,24 @@ async def test_provider_fallback_stays_latched_after_expiry_and_restart_until_re
     assert await restored.evaluate_due(840, active=False)
     assert not restored.health.fallback_required(840, pending=False)
     assert not restored.controller.state.candidates
+
+
+@pytest.mark.parametrize(
+    "field, value",
+    [
+        ("queue", []),
+        ("retry_after", "invalid"),
+        ("last_error", {}),
+        ("local_rejections", [1]),
+        ("health", {"failures": "invalid"}),
+    ],
+)
+def test_observer_checkpoint_rejects_invalid_shapes_before_restore(field, value):
+    class Unused:
+        async def evaluate(self, snapshot):
+            pytest.fail("checkpoint validation cannot invoke a provider")
+
+    session = ObservationSession(controller(), Unused())
+    session.controller.state.observer_checkpoint[field] = value
+    with pytest.raises(ValueError):
+        ObservationSession(session.controller, Unused())

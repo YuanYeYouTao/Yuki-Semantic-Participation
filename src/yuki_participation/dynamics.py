@@ -15,7 +15,7 @@ def decay(b: Belief, seconds: float) -> Belief:
         x * math.exp(-max(0, seconds) / tau)
         for x, tau in zip(b[1:], (120, 300, 240, 300), strict=True)
     )
-    return (1 - sum(tails), *tails)
+    return (1 - sum(tails), tails[0], tails[1], tails[2], tails[3])
 
 
 def observe(b: Belief, act: Choice, *, matched_self: bool, omega: float = 0.8) -> Belief:
@@ -33,7 +33,7 @@ def observe(b: Belief, act: Choice, *, matched_self: bool, omega: float = 0.8) -
                 result[i] += omega * weight * x
         else:
             result[target] += omega * weight
-    return tuple(result)  # type: ignore[return-value]
+    return (result[0], result[1], result[2], result[3], result[4])
 
 
 def self_expression(b: Belief) -> Belief:

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections import OrderedDict
 from dataclasses import dataclass
+from typing import Any
 
 from .models import CandidateKind, Scope, ScopedEvent, Snapshot
 
@@ -158,7 +159,9 @@ class ObservationQueue:
             "invalidated": self.invalidated,
         }
 
-    def restore(self, checkpoint: dict, *, now: float, events: dict[str, ScopedEvent]) -> None:
+    def restore(
+        self, checkpoint: dict[str, Any], *, now: float, events: dict[str, ScopedEvent]
+    ) -> None:
         self.sequence = int(checkpoint.get("sequence", 0))
         last_call = checkpoint.get("last_call")
         self.last_call = float(last_call) if last_call is not None else float("-inf")

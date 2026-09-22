@@ -13,4 +13,5 @@ jobs:
       - run: python -m pip install -e '.[dev]'
       - run: ruff check src tests scripts
       - run: ruff format --check src tests scripts
+      - run: mypy --strict src/yuki_participation
       - run: pytest -q
