@@ -9,3 +9,4 @@ dist/
 !.env.example
 *.sqlite3*
 private-data/
+.cache/

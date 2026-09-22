@@ -1,0 +1,615 @@
+{
+  "generated_at": "2026-09-22T08:01:18.721532+00:00",
+  "provenance": "developer-authored synthetic",
+  "limitations": "Synthetic developer expectations; not independent human labels or a claim of real-chat accuracy. No provider retries.",
+  "configured_model": "jev-1.13.0",
+  "rubric_revision": "v6-zh-1",
+  "request_byte_ceiling": 16000,
+  "cases_requested": 7,
+  "observed_count": 7,
+  "compared_dimensions": 17,
+  "matching_dimensions": 14,
+  "input_tokens": 7575,
+  "output_tokens": 1677,
+  "usage_complete": true,
+  "rows": [
+    {
+      "case_id": "invitation_without_mention",
+      "expected": {
+        "interaction_mark": "invite_yuki",
+        "information_state": "new",
+        "floor_state": "yuki"
+      },
+      "attempt_count": 1,
+      "request_bytes": 1854,
+      "http_attempt_count": 1,
+      "status": "observed",
+      "model_revision": "jev-1.13.0",
+      "rubric_revision": "v6-zh-1",
+      "input_tokens": 1027,
+      "output_tokens": 239,
+      "omitted_context": 0,
+      "answers": {
+        "interaction_mark": {
+          "probabilities": {
+            "extend_yuki": 0.2,
+            "open_group": 0.0,
+            "off_focus": 0.0,
+            "other_exchange": 0.0,
+            "acknowledge": 0.0,
+            "unknown": 0.0,
+            "invite_yuki": 0.8,
+            "ask_yuki_stop": 0.0,
+            "close_topic": 0.0
+          },
+          "choice": "invite_yuki"
+        },
+        "information_state": {
+          "probabilities": {
+            "unknown": 0.01,
+            "refine": 0.04,
+            "new": 0.9,
+            "social_ack": 0.04,
+            "repeat": 0.01
+          },
+          "choice": "new"
+        },
+        "floor_state": {
+          "probabilities": {
+            "unknown": 0.01,
+            "open": 0.01,
+            "other": 0.01,
+            "yuki": 0.97,
+            "unfinished": 0.0
+          },
+          "choice": "yuki"
+        },
+        "boundary_scope": {
+          "probabilities": {
+            "unknown": 0.7,
+            "group_thread": 0.06,
+            "target_thread": 0.24
+          },
+          "choice": "unknown"
+        }
+      },
+      "invalid_dimensions": [],
+      "comparisons": {
+        "interaction_mark": {
+          "expected": "invite_yuki",
+          "actual": "invite_yuki",
+          "matches": true,
+          "expected_probability": 0.8
+        },
+        "information_state": {
+          "expected": "new",
+          "actual": "new",
+          "matches": true,
+          "expected_probability": 0.9
+        },
+        "floor_state": {
+          "expected": "yuki",
+          "actual": "yuki",
+          "matches": true,
+          "expected_probability": 0.97
+        }
+      },
+      "latency_seconds": 1.0814,
+      "offline_controller_replay": {
+        "candidate_count": 1,
+        "boundaries": [],
+        "limitation": "Recorded synthetic observation only, no host or QQ execution."
+      }
+    },
+    {
+      "case_id": "negative_correction_continues",
+      "expected": {
+        "interaction_mark": "extend_yuki",
+        "information_state": "refine",
+        "floor_state": "yuki"
+      },
+      "attempt_count": 1,
+      "request_bytes": 2043,
+      "http_attempt_count": 1,
+      "status": "observed",
+      "model_revision": "jev-1.13.0",
+      "rubric_revision": "v6-zh-1",
+      "input_tokens": 1120,
+      "output_tokens": 240,
+      "omitted_context": 0,
+      "answers": {
+        "interaction_mark": {
+          "probabilities": {
+            "extend_yuki": 1.0,
+            "close_topic": 0.0,
+            "open_group": 0.0,
+            "unknown": 0.0,
+            "acknowledge": 0.0,
+            "ask_yuki_stop": 0.0,
+            "off_focus": 0.0,
+            "other_exchange": 0.0,
+            "invite_yuki": 0.0
+          },
+          "choice": "extend_yuki"
+        },
+        "information_state": {
+          "probabilities": {
+            "repeat": 0.0,
+            "new": 0.01,
+            "unknown": 0.0,
+            "social_ack": 0.0,
+            "refine": 0.99
+          },
+          "choice": "refine"
+        },
+        "floor_state": {
+          "probabilities": {
+            "other": 0.15,
+            "yuki": 0.75,
+            "open": 0.06,
+            "unfinished": 0.02,
+            "unknown": 0.02
+          },
+          "choice": "yuki"
+        },
+        "boundary_scope": {
+          "probabilities": {
+            "group_thread": 0.07,
+            "target_thread": 0.2,
+            "unknown": 0.73
+          },
+          "choice": "unknown"
+        }
+      },
+      "invalid_dimensions": [],
+      "comparisons": {
+        "interaction_mark": {
+          "expected": "extend_yuki",
+          "actual": "extend_yuki",
+          "matches": true,
+          "expected_probability": 1.0
+        },
+        "information_state": {
+          "expected": "refine",
+          "actual": "refine",
+          "matches": true,
+          "expected_probability": 0.99
+        },
+        "floor_state": {
+          "expected": "yuki",
+          "actual": "yuki",
+          "matches": true,
+          "expected_probability": 0.75
+        }
+      },
+      "latency_seconds": 0.3546,
+      "offline_controller_replay": {
+        "candidate_count": 1,
+        "boundaries": [],
+        "limitation": "Recorded synthetic observation only, no host or QQ execution."
+      }
+    },
+    {
+      "case_id": "thanks_is_not_closure",
+      "expected": {
+        "interaction_mark": "acknowledge",
+        "information_state": "social_ack"
+      },
+      "attempt_count": 1,
+      "request_bytes": 1959,
+      "http_attempt_count": 1,
+      "status": "observed",
+      "model_revision": "jev-1.13.0",
+      "rubric_revision": "v6-zh-1",
+      "input_tokens": 1092,
+      "output_tokens": 241,
+      "omitted_context": 0,
+      "answers": {
+        "interaction_mark": {
+          "probabilities": {
+            "open_group": 0.0,
+            "off_focus": 0.0,
+            "extend_yuki": 0.0,
+            "other_exchange": 0.0,
+            "acknowledge": 1.0,
+            "unknown": 0.0,
+            "invite_yuki": 0.0,
+            "ask_yuki_stop": 0.0,
+            "close_topic": 0.0
+          },
+          "choice": "acknowledge"
+        },
+        "information_state": {
+          "probabilities": {
+            "unknown": 0.0,
+            "refine": 0.0,
+            "new": 0.0,
+            "social_ack": 1.0,
+            "repeat": 0.0
+          },
+          "choice": "social_ack"
+        },
+        "floor_state": {
+          "probabilities": {
+            "unknown": 0.06,
+            "open": 0.05,
+            "yuki": 0.74,
+            "other": 0.12,
+            "unfinished": 0.03
+          },
+          "choice": "yuki"
+        },
+        "boundary_scope": {
+          "probabilities": {
+            "unknown": 0.67,
+            "group_thread": 0.1,
+            "target_thread": 0.23
+          },
+          "choice": "unknown"
+        }
+      },
+      "invalid_dimensions": [],
+      "comparisons": {
+        "interaction_mark": {
+          "expected": "acknowledge",
+          "actual": "acknowledge",
+          "matches": true,
+          "expected_probability": 1.0
+        },
+        "information_state": {
+          "expected": "social_ack",
+          "actual": "social_ack",
+          "matches": true,
+          "expected_probability": 1.0
+        }
+      },
+      "latency_seconds": 0.3596,
+      "offline_controller_replay": {
+        "candidate_count": 1,
+        "boundaries": [],
+        "limitation": "Recorded synthetic observation only, no host or QQ execution."
+      }
+    },
+    {
+      "case_id": "thanks_and_resolved",
+      "expected": {
+        "interaction_mark": "close_topic",
+        "boundary_scope": "target_thread"
+      },
+      "attempt_count": 1,
+      "request_bytes": 2040,
+      "http_attempt_count": 1,
+      "status": "observed",
+      "model_revision": "jev-1.13.0",
+      "rubric_revision": "v6-zh-1",
+      "input_tokens": 1118,
+      "output_tokens": 240,
+      "omitted_context": 0,
+      "answers": {
+        "interaction_mark": {
+          "probabilities": {
+            "extend_yuki": 0.01,
+            "ask_yuki_stop": 0.03,
+            "acknowledge": 0.04,
+            "unknown": 0.0,
+            "close_topic": 0.92,
+            "off_focus": 0.0,
+            "invite_yuki": 0.0,
+            "open_group": 0.0,
+            "other_exchange": 0.0
+          },
+          "choice": "close_topic"
+        },
+        "information_state": {
+          "probabilities": {
+            "repeat": 0.0,
+            "refine": 0.02,
+            "new": 0.01,
+            "social_ack": 0.97,
+            "unknown": 0.0
+          },
+          "choice": "social_ack"
+        },
+        "floor_state": {
+          "probabilities": {
+            "unfinished": 0.03,
+            "other": 0.2,
+            "open": 0.11,
+            "yuki": 0.5599999999999999,
+            "unknown": 0.1
+          },
+          "choice": "yuki"
+        },
+        "boundary_scope": {
+          "probabilities": {
+            "group_thread": 0.53,
+            "unknown": 0.09,
+            "target_thread": 0.38
+          },
+          "choice": "group_thread"
+        }
+      },
+      "invalid_dimensions": [],
+      "comparisons": {
+        "interaction_mark": {
+          "expected": "close_topic",
+          "actual": "close_topic",
+          "matches": true,
+          "expected_probability": 0.92
+        },
+        "boundary_scope": {
+          "expected": "target_thread",
+          "actual": "group_thread",
+          "matches": false,
+          "expected_probability": 0.38
+        }
+      },
+      "latency_seconds": 0.3267,
+      "offline_controller_replay": {
+        "candidate_count": 0,
+        "boundaries": [
+          {
+            "group_wide": true
+          }
+        ],
+        "limitation": "Recorded synthetic observation only, no host or QQ execution."
+      }
+    },
+    {
+      "case_id": "explicit_stop",
+      "expected": {
+        "interaction_mark": "ask_yuki_stop",
+        "boundary_scope": "target_thread"
+      },
+      "attempt_count": 1,
+      "request_bytes": 2002,
+      "http_attempt_count": 1,
+      "status": "observed",
+      "model_revision": "jev-1.13.0",
+      "rubric_revision": "v6-zh-1",
+      "input_tokens": 1107,
+      "output_tokens": 242,
+      "omitted_context": 0,
+      "answers": {
+        "interaction_mark": {
+          "probabilities": {
+            "acknowledge": 0.0,
+            "ask_yuki_stop": 0.96,
+            "close_topic": 0.04,
+            "invite_yuki": 0.0,
+            "extend_yuki": 0.0,
+            "open_group": 0.0,
+            "unknown": 0.0,
+            "off_focus": 0.0,
+            "other_exchange": 0.0
+          },
+          "choice": "ask_yuki_stop"
+        },
+        "information_state": {
+          "probabilities": {
+            "refine": 0.68,
+            "social_ack": 0.02,
+            "new": 0.28,
+            "unknown": 0.01,
+            "repeat": 0.01
+          },
+          "choice": "refine"
+        },
+        "floor_state": {
+          "probabilities": {
+            "open": 0.04,
+            "other": 0.09,
+            "unknown": 0.04,
+            "yuki": 0.77,
+            "unfinished": 0.06
+          },
+          "choice": "yuki"
+        },
+        "boundary_scope": {
+          "probabilities": {
+            "target_thread": 0.69,
+            "group_thread": 0.15,
+            "unknown": 0.16
+          },
+          "choice": "target_thread"
+        }
+      },
+      "invalid_dimensions": [],
+      "comparisons": {
+        "interaction_mark": {
+          "expected": "ask_yuki_stop",
+          "actual": "ask_yuki_stop",
+          "matches": true,
+          "expected_probability": 0.96
+        },
+        "boundary_scope": {
+          "expected": "target_thread",
+          "actual": "target_thread",
+          "matches": true,
+          "expected_probability": 0.69
+        }
+      },
+      "latency_seconds": 0.3572,
+      "offline_controller_replay": {
+        "candidate_count": 0,
+        "boundaries": [
+          {
+            "group_wide": false
+          }
+        ],
+        "limitation": "Recorded synthetic observation only, no host or QQ execution."
+      }
+    },
+    {
+      "case_id": "other_people_exchange",
+      "expected": {
+        "interaction_mark": "other_exchange",
+        "floor_state": "other"
+      },
+      "attempt_count": 1,
+      "request_bytes": 2012,
+      "http_attempt_count": 1,
+      "status": "observed",
+      "model_revision": "jev-1.13.0",
+      "rubric_revision": "v6-zh-1",
+      "input_tokens": 1108,
+      "output_tokens": 239,
+      "omitted_context": 0,
+      "answers": {
+        "interaction_mark": {
+          "probabilities": {
+            "open_group": 0.0,
+            "other_exchange": 0.03,
+            "off_focus": 0.01,
+            "unknown": 0.07,
+            "acknowledge": 0.03,
+            "ask_yuki_stop": 0.0,
+            "extend_yuki": 0.84,
+            "invite_yuki": 0.02,
+            "close_topic": 0.0
+          },
+          "choice": "extend_yuki"
+        },
+        "information_state": {
+          "probabilities": {
+            "new": 0.02,
+            "social_ack": 0.09,
+            "refine": 0.89,
+            "unknown": 0.0,
+            "repeat": 0.0
+          },
+          "choice": "refine"
+        },
+        "floor_state": {
+          "probabilities": {
+            "yuki": 0.02,
+            "unfinished": 0.07,
+            "unknown": 0.26,
+            "other": 0.61,
+            "open": 0.04
+          },
+          "choice": "other"
+        },
+        "boundary_scope": {
+          "probabilities": {
+            "target_thread": 0.19,
+            "unknown": 0.74,
+            "group_thread": 0.07
+          },
+          "choice": "unknown"
+        }
+      },
+      "invalid_dimensions": [],
+      "comparisons": {
+        "interaction_mark": {
+          "expected": "other_exchange",
+          "actual": "extend_yuki",
+          "matches": false,
+          "expected_probability": 0.03
+        },
+        "floor_state": {
+          "expected": "other",
+          "actual": "other",
+          "matches": true,
+          "expected_probability": 0.61
+        }
+      },
+      "latency_seconds": 0.3211,
+      "offline_controller_replay": {
+        "candidate_count": 0,
+        "boundaries": [],
+        "limitation": "Recorded synthetic observation only, no host or QQ execution."
+      }
+    },
+    {
+      "case_id": "missing_referent_unknown",
+      "expected": {
+        "interaction_mark": "unknown",
+        "information_state": "unknown",
+        "floor_state": "unknown"
+      },
+      "attempt_count": 1,
+      "request_bytes": 1786,
+      "http_attempt_count": 1,
+      "status": "observed",
+      "model_revision": "jev-1.13.0",
+      "rubric_revision": "v6-zh-1",
+      "input_tokens": 1003,
+      "output_tokens": 236,
+      "omitted_context": 0,
+      "answers": {
+        "interaction_mark": {
+          "probabilities": {
+            "acknowledge": 0.01,
+            "ask_yuki_stop": 0.0,
+            "close_topic": 0.0,
+            "unknown": 0.53,
+            "invite_yuki": 0.01,
+            "off_focus": 0.01,
+            "open_group": 0.01,
+            "other_exchange": 0.0,
+            "extend_yuki": 0.43
+          },
+          "choice": "unknown"
+        },
+        "information_state": {
+          "probabilities": {
+            "repeat": 0.01,
+            "new": 0.71,
+            "social_ack": 0.03,
+            "refine": 0.01,
+            "unknown": 0.24
+          },
+          "choice": "new"
+        },
+        "floor_state": {
+          "probabilities": {
+            "unfinished": 0.1,
+            "other": 0.07,
+            "open": 0.04,
+            "unknown": 0.78,
+            "yuki": 0.01
+          },
+          "choice": "unknown"
+        },
+        "boundary_scope": {
+          "probabilities": {
+            "group_thread": 0.03,
+            "target_thread": 0.06,
+            "unknown": 0.91
+          },
+          "choice": "unknown"
+        }
+      },
+      "invalid_dimensions": [],
+      "comparisons": {
+        "interaction_mark": {
+          "expected": "unknown",
+          "actual": "unknown",
+          "matches": true,
+          "expected_probability": 0.53
+        },
+        "information_state": {
+          "expected": "unknown",
+          "actual": "new",
+          "matches": false,
+          "expected_probability": 0.24
+        },
+        "floor_state": {
+          "expected": "unknown",
+          "actual": "unknown",
+          "matches": true,
+          "expected_probability": 0.78
+        }
+      },
+      "latency_seconds": 0.3438,
+      "offline_controller_replay": {
+        "candidate_count": 0,
+        "boundaries": [],
+        "limitation": "Recorded synthetic observation only, no host or QQ execution."
+      }
+    }
+  ],
+  "projection_revision": "semantic-state-v1",
+  "annotation": "Projection version labelled after the run; payload code was unchanged. Offline replay uses the recorded probabilities, not a new API call."
+}

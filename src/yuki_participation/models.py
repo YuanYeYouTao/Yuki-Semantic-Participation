@@ -92,6 +92,7 @@ class Observation(Record):
     input_tokens: int | None = Field(default=None, ge=0)
     output_tokens: int | None = Field(default=None, ge=0)
     attempt_count: int = Field(default=1, ge=1)
+    request_bytes: int | None = Field(default=None, ge=0)
 
 
 class Estimate(Record):
@@ -108,6 +109,7 @@ class Support(Record):
     observation_id: str
     covered: tuple[SourceRef, ...]
     basis: SourceRef
+    dependencies: tuple[SourceRef, ...] = ()
     issued_at: Timestamp
     valid_until: Timestamp
 
@@ -132,6 +134,13 @@ class Proposal(Record):
     expires_at: Timestamp
 
 
+class Effect(Record):
+    effect_id: str = Field(min_length=1)
+    kind: Literal["message", "compute", "tool"]
+    at: Timestamp
+    actual_targets: tuple[str, ...] = ()
+
+
 class Feedback(Record):
     run_ref: str
     proposal_id: str
@@ -140,4 +149,4 @@ class Feedback(Record):
     at: Timestamp
     considered_refs: tuple[SourceRef, ...] = ()
     actual_targets: tuple[str, ...] = ()
-    effects: tuple[str, ...] = ()
+    effects: tuple[Effect, ...] = ()

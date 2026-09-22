@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "provenance": "developer-authored synthetic",
+  "limitations": "开发者编写的合成中文探针与期望，不是真实聊天语料、独立人工标注或生产效果验收。期望不会提交给提供者。",
+  "cases": [
+    {
+      "id": "invitation_without_mention",
+      "context": [],
+      "focus": {"id": "invitation", "author": "person:a", "target": "person:a", "text": "Yuki，我想听听你的看法：刚才那首歌里，你最喜欢哪一段？", "kind": "human"},
+      "expected": {"interaction_mark": "invite_yuki", "information_state": "new", "floor_state": "yuki"}
+    },
+    {
+      "id": "negative_correction_continues",
+      "context": [
+        {"id": "wrong_explanation", "author": "Yuki", "target": "person:a", "text": "太阳是一颗行星，地球则是一颗恒星。", "kind": "self"}
+      ],
+      "focus": {"id": "correction", "author": "person:a", "target": "person:a", "text": "你这句完全弄反了！太阳是恒星，地球才是行星。你能改正解释吗？", "kind": "human", "reply_to": "wrong_explanation"},
+      "expected": {"interaction_mark": "extend_yuki", "information_state": "refine", "floor_state": "yuki"}
+    },
+    {
+      "id": "thanks_is_not_closure",
+      "context": [
+        {"id": "helpful_hint", "author": "Yuki", "target": "person:a", "text": "你可以先打开设置里的显示选项。", "kind": "self"}
+      ],
+      "focus": {"id": "thanks", "author": "person:a", "target": "person:a", "text": "谢谢你。", "kind": "human", "reply_to": "helpful_hint"},
+      "expected": {"interaction_mark": "acknowledge", "information_state": "social_ack"}
+    },
+    {
+      "id": "thanks_and_resolved",
+      "context": [
+        {"id": "repair_hint", "author": "Yuki", "target": "person:a", "text": "把显示缩放改回推荐值，再看看窗口是否恢复。", "kind": "self"}
+      ],
+      "focus": {"id": "resolved", "author": "person:a", "target": "person:a", "text": "谢谢，已经解决了。这个问题到这里就好，不用继续了。", "kind": "human", "reply_to": "repair_hint"},
+      "expected": {"interaction_mark": "close_topic", "boundary_scope": "target_thread"}
+    },
+    {
+      "id": "explicit_stop",
+      "context": [
+        {"id": "ongoing_explanation", "author": "Yuki", "target": "person:a", "text": "我还可以接着讲这个话题。", "kind": "self"}
+      ],
+      "focus": {"id": "stop", "author": "person:a", "target": "person:a", "text": "Yuki，请停止和我讨论这件事，我现在不想听了。", "kind": "human", "reply_to": "ongoing_explanation"},
+      "expected": {"interaction_mark": "ask_yuki_stop", "boundary_scope": "target_thread"}
+    },
+    {
+      "id": "other_people_exchange",
+      "context": [
+        {"id": "bob_plan", "author": "person:b", "target": "person:a", "text": "阿甲，周六一起去图书馆吧。", "kind": "human"}
+      ],
+      "focus": {"id": "alice_reply", "author": "person:a", "target": "person:b", "text": "阿乙，你提的周六去图书馆可以啊，你几点方便？", "kind": "human", "reply_to": "bob_plan"},
+      "expected": {"interaction_mark": "other_exchange", "floor_state": "other"}
+    },
+    {
+      "id": "missing_referent_unknown",
+      "context": [],
+      "focus": {"id": "ambiguous", "author": "person:a", "target": "unknown", "text": "那个呢？", "kind": "human"},
+      "expected": {"interaction_mark": "unknown", "information_state": "unknown", "floor_state": "unknown"}
+    }
+  ]
+}

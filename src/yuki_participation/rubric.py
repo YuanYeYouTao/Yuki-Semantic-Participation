@@ -14,19 +14,29 @@ CRITERIA = {
         "unknown": "材料不足或歧义",
     },
     "information_state": {
-        "new": "新议题", "refine": "相关细化或纠正", "repeat": "重复",
-        "social_ack": "社交确认", "unknown": "不能判断",
+        "new": "新议题",
+        "refine": "相关细化或纠正",
+        "repeat": "重复",
+        "social_ack": "社交确认",
+        "unknown": "不能判断",
     },
     "floor_state": {
-        "yuki": "留给Yuki", "open": "面向全群", "other": "留给别人",
-        "unfinished": "还没说完", "unknown": "不能判断",
+        "yuki": "留给Yuki",
+        "open": "面向全群",
+        "other": "留给别人",
+        "unfinished": "还没说完",
+        "unknown": "不能判断",
     },
     "boundary_scope": {
-        "target_thread": "仅当前target与thread", "group_thread": "整个当前thread",
+        "target_thread": "仅当前target与thread",
+        "group_thread": "整个当前thread",
         "unknown": "范围不明",
     },
-    "seed_fit": {"appropriate": "该依据适合在当前群提起", "unsuitable": "不适合",
-                 "unknown": "无法判断"},
+    "seed_fit": {
+        "appropriate": "该依据适合在当前群提起",
+        "unsuitable": "不适合",
+        "unknown": "无法判断",
+    },
 }
 INSTRUCTIONS = {
     "interaction_mark": "focus对Yuki的交际行为是什么？纠正不等于退出，谢谢不等于结束。",
