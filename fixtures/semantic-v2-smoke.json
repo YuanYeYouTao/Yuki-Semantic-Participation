@@ -1,0 +1,239 @@
+{
+  "version": 2,
+  "provenance": "developer-authored synthetic",
+  "limitations": "开发者编写的合成中文探针与期望，不是真实聊天语料、独立人工标注或生产效果验收。期望不会提交给提供者。",
+  "cases": [
+    {
+      "id": "invitation_without_mention",
+      "context": [],
+      "focus": {
+        "id": "invitation",
+        "author": "person:a",
+        "target": "person:a",
+        "text": "Yuki，我想听听你的看法：刚才那首歌里，你最喜欢哪一段？",
+        "kind": "human"
+      },
+      "expected": {
+        "interaction_mark": "invite_yuki",
+        "information_state": "new",
+        "floor_state": "yuki"
+      }
+    },
+    {
+      "id": "negative_correction_continues",
+      "context": [
+        {
+          "id": "wrong_explanation",
+          "author": "Yuki",
+          "target": "person:a",
+          "text": "太阳是一颗行星，地球则是一颗恒星。",
+          "kind": "self"
+        }
+      ],
+      "focus": {
+        "id": "correction",
+        "author": "person:a",
+        "target": "person:a",
+        "text": "你这句完全弄反了！太阳是恒星，地球才是行星。你能改正解释吗？",
+        "kind": "human",
+        "reply_to": "wrong_explanation"
+      },
+      "expected": {
+        "interaction_mark": "extend_yuki",
+        "information_state": "refine",
+        "floor_state": "yuki"
+      }
+    },
+    {
+      "id": "thanks_is_not_closure",
+      "context": [
+        {
+          "id": "helpful_hint",
+          "author": "Yuki",
+          "target": "person:a",
+          "text": "你可以先打开设置里的显示选项。",
+          "kind": "self"
+        }
+      ],
+      "focus": {
+        "id": "thanks",
+        "author": "person:a",
+        "target": "person:a",
+        "text": "谢谢你。",
+        "kind": "human",
+        "reply_to": "helpful_hint"
+      },
+      "expected": {
+        "interaction_mark": "acknowledge",
+        "information_state": "social_ack"
+      }
+    },
+    {
+      "id": "unit_choice",
+      "context": [
+        {
+          "id": "a",
+          "author": "person:a",
+          "target": "person:a",
+          "thread": "t1",
+          "text": "我们在讨论Python任务怎么暂停。"
+        },
+        {
+          "id": "b",
+          "author": "person:b",
+          "target": "person:b",
+          "thread": "t2",
+          "text": "今晚看月亮吗？"
+        }
+      ],
+      "focus": {
+        "id": "c",
+        "author": "person:a",
+        "target": "person:a",
+        "text": "Yuki，刚刚Python暂停那个，恢复时变量还在吗？",
+        "unit_options": [
+          {
+            "key": "new",
+            "thread": "t3",
+            "target": "person:a",
+            "label": "新讨论"
+          },
+          {
+            "key": "u1",
+            "thread": "t1",
+            "target": "person:a",
+            "label": "Python任务的暂停和恢复"
+          },
+          {
+            "key": "u2",
+            "thread": "t2",
+            "target": "person:a",
+            "label": "今晚看月亮"
+          }
+        ]
+      },
+      "expected": {
+        "unit_selection": "u1",
+        "interaction_mark": "extend_yuki",
+        "floor_state": "yuki"
+      }
+    },
+    {
+      "id": "same_person_reopens",
+      "context": [
+        {
+          "id": "a",
+          "author": "person:a",
+          "target": "person:a",
+          "text": "Yuki，先别和我说Python了，我要忙了。"
+        }
+      ],
+      "focus": {
+        "id": "b",
+        "author": "person:a",
+        "target": "person:a",
+        "text": "我忙完了，Yuki我们继续刚才的Python问题好吗？"
+      },
+      "expected": {
+        "interaction_mark": "invite_yuki",
+        "floor_state": "yuki",
+        "boundary_scope": "target_thread"
+      }
+    },
+    {
+      "id": "recall_basis",
+      "kind": "recall",
+      "context": [
+        {
+          "id": "a",
+          "author": "person:a",
+          "target": "group",
+          "text": "大家还记得上次一起看流星雨吗？"
+        }
+      ],
+      "focus": {
+        "id": "b",
+        "author": "SELF",
+        "target": "group",
+        "kind": "seed",
+        "text": "获准群记忆：上次群友一起看流星雨，约定下次带热可可。"
+      },
+      "expected": {
+        "seed_fit": "appropriate"
+      }
+    },
+    {
+      "id": "contact_basis",
+      "kind": "contact",
+      "context": [
+        {
+          "id": "a",
+          "author": "person:a",
+          "target": "group",
+          "text": "我又开始画水彩了。"
+        }
+      ],
+      "focus": {
+        "id": "b",
+        "author": "SELF",
+        "target": "person:a",
+        "kind": "seed",
+        "text": "获准群记忆：此人曾在本群希望下次聊聊水彩纸的选择。"
+      },
+      "expected": {
+        "seed_fit": "appropriate"
+      }
+    },
+    {
+      "id": "longer_six_context",
+      "context": [
+        {
+          "id": "h0",
+          "author": "person:0",
+          "target": "group",
+          "text": "第1段讨论：我们准备做一本旅行相册，照片很多。先按城市分组，然后每一页挑最有故事的两张，文字要简短，尽量保留拍摄日期和地点。"
+        },
+        {
+          "id": "h1",
+          "author": "person:1",
+          "target": "group",
+          "text": "第2段讨论：我们准备做一本旅行相册，照片很多。先按城市分组，然后每一页挑最有故事的两张，文字要简短，尽量保留拍摄日期和地点。"
+        },
+        {
+          "id": "h2",
+          "author": "person:0",
+          "target": "group",
+          "text": "第3段讨论：我们准备做一本旅行相册，照片很多。先按城市分组，然后每一页挑最有故事的两张，文字要简短，尽量保留拍摄日期和地点。"
+        },
+        {
+          "id": "h3",
+          "author": "person:1",
+          "target": "group",
+          "text": "第4段讨论：我们准备做一本旅行相册，照片很多。先按城市分组，然后每一页挑最有故事的两张，文字要简短，尽量保留拍摄日期和地点。"
+        },
+        {
+          "id": "h4",
+          "author": "person:0",
+          "target": "group",
+          "text": "第5段讨论：我们准备做一本旅行相册，照片很多。先按城市分组，然后每一页挑最有故事的两张，文字要简短，尽量保留拍摄日期和地点。"
+        },
+        {
+          "id": "h5",
+          "author": "person:1",
+          "target": "group",
+          "text": "第6段讨论：我们准备做一本旅行相册，照片很多。先按城市分组，然后每一页挑最有故事的两张，文字要简短，尽量保留拍摄日期和地点。"
+        }
+      ],
+      "focus": {
+        "id": "f",
+        "author": "person:0",
+        "target": "person:0",
+        "text": "Yuki，你看完前面的安排后，能给我们提一个相册排版建议吗？"
+      },
+      "expected": {
+        "interaction_mark": "invite_yuki",
+        "floor_state": "yuki"
+      }
+    }
+  ]
+}

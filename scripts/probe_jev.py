@@ -19,7 +19,14 @@ from pathlib import Path
 
 import httpx
 
-from yuki_participation.models import Scope, ScopedEvent, Snapshot, SourceRef
+from yuki_participation.models import (
+    CandidateKind,
+    HostUnitOption,
+    Scope,
+    ScopedEvent,
+    Snapshot,
+    SourceRef,
+)
 from yuki_participation.observer import PROJECTION_REVISION, InputTooLarge, JevObserver
 from yuki_participation.rubric import CRITERIA, REVISION
 
@@ -36,7 +43,13 @@ def load_cases(path: Path) -> list[dict]:
         raise ValueError("fixture_requires_one_to_eight_unique_cases")
     for case in cases:
         for dimension, expected in case["expected"].items():
-            if dimension not in CRITERIA or expected not in CRITERIA[dimension]:
+            criteria = CRITERIA.get(dimension, {})
+            if dimension == "unit_selection":
+                criteria = {
+                    **{o["key"]: "" for o in case["focus"].get("unit_options", [])},
+                    "unknown": "",
+                }
+            if expected not in criteria:
                 raise ValueError("fixture_expected_label_not_in_rubric")
         make_snapshot(case, sequence=1, now=100)
     return cases
@@ -52,7 +65,9 @@ def make_snapshot(case: dict, *, sequence: int, now: float) -> Snapshot:
         return ScopedEvent(
             scope=scope,
             ref=SourceRef(event_id=neutral_refs[item["id"]], revision=1),
-            thread="thread-1",
+            thread=item.get("thread", "thread-1"),
+            unit_ambiguous=bool(item.get("unit_options")),
+            unit_options=tuple(HostUnitOption(**o) for o in item.get("unit_options", [])),
             author=item["author"],
             target=item["target"],
             text=item["text"],
@@ -73,6 +88,7 @@ def make_snapshot(case: dict, *, sequence: int, now: float) -> Snapshot:
         ),
         sequence=sequence,
         issued_at=now,
+        kind=CandidateKind(case.get("kind", "conversation")),
     )
 
 
