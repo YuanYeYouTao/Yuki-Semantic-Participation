@@ -1,6 +1,6 @@
 # 连续自主参与模型
 
-2026-09-23 开发分支实现。本文对应 `dynamics.py`、`Controller.opportunity_scores()` 和
+2026-09-23 实现并调整参数。本文对应 `dynamics.py`、`Controller.opportunity_scores()` 和
 `Controller.intrinsic_opportunity()`；合并与上线状态以 Host 固定的依赖提交和部署记录为准。
 完整设计背景见 Yuki Host 的 `docs/architecture/autonomous-participation-model.md`。
 
