@@ -3,6 +3,7 @@
 from test_core_review_regressions import controller, feedback, observation, source
 
 from yuki_participation.models import CandidateKind, Choice, HostUnitOption
+from yuki_participation.scheduling import ObservationQueue
 
 
 def test_intrinsic_opportunity_needs_no_external_source_and_does_not_repeat_immediately():
@@ -96,3 +97,21 @@ def test_self_option_alone_does_not_claim_a_continuation():
     )
     assert c.apply_semantic_observation(score)
     assert c.state.observations[focus.ref.event_id].matching_self_anchor is None
+
+
+def test_observation_queue_keeps_implicit_self_anchor_in_context():
+    c = controller()
+    anchor = source("outbound", at=100, kind="self", target="group")
+    option = HostUnitOption(key="self", thread="topic", target="A", self_anchor=anchor.ref)
+    focus = source(
+        "human",
+        at=110,
+        unit_ambiguous=True,
+        unit_options=(HostUnitOption(key="new", thread="new", target="A"), option),
+    )
+    fillers = tuple(source(f"filler-{index}", at=101 + index) for index in range(7))
+    queue = ObservationQueue(c.state.scope)
+    queue.offer(focus)
+    snapshot = queue.take(140, active=False, context=(anchor, *fillers))
+    assert snapshot is not None
+    assert anchor in snapshot.context
