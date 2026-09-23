@@ -104,14 +104,12 @@ def rate(
     ratio_reference: float = 0.35,
     ratio_cost: float = 0.1,
 ) -> tuple[float, float]:
-    threshold = {"conversation": 0.25, "recall": 0.30, "contact": 0.35}[kind]
     value = (
         (1 + 0.1 * willingness) * x
         + 0.35 * b[1]
         + 0.25 * b[3]
         - 0.15 * b[2]
         - 0.70 * b[4]
-        - threshold
         - 0.08 * speech
         - 0.04 * compute
         - 0.02 * activity

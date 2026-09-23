@@ -14,27 +14,37 @@ def test_round_robin_and_inflight_coalescing():
     second = event("e2", at=101).model_copy(update={"thread": "other"})
     queue.offer(first)
     queue.offer(second)
-    assert queue.take(120, active=False, context=()) is None
-    snapshot = queue.take(130, active=False, context=())
+    assert queue.take(102, active=False, context=()) is None
+    snapshot = queue.take(103, active=False, context=())
     assert snapshot.focus == first
-    queue.offer(event("e3", at=132))
-    assert queue.take(200, active=False, context=()) is None
+    queue.offer(event("e3", at=105))
+    assert queue.take(115, active=False, context=()) is None
     queue.finish(snapshot.sequence)
-    assert queue.take(219, active=False, context=()) is None
-    assert queue.take(220, active=False, context=()).focus.ref.event_id == "e3"
-    assert queue.expired == 1
+    assert queue.take(114, active=False, context=()) is None
+    assert queue.take(115, active=False, context=()).focus.ref.event_id == "e3"
 
 
 def test_earlier_invitation_is_not_replaced_by_later_same_unit_message():
     queue = ObservationQueue(SCOPE)
-    first, second = event("invite", at=100), event("ack", at=101)
+    first = event("invite", at=100).model_copy(update={"observation_priority": True})
+    second = event("ack", at=101)
     queue.offer(first)
     queue.offer(second)
     assert len(queue.pending) == 2
     snapshot = queue.take(110, active=True, context=(first, second))
     assert snapshot.focus == first
     queue.finish(snapshot.sequence)
-    assert queue.take(140, active=True, context=(first, second)).focus == second
+    assert queue.take(118, active=True, context=(first, second)).focus == second
+
+
+def test_priority_focus_survives_bounded_queue_overflow():
+    queue = ObservationQueue(SCOPE, max_pending=2)
+    named = event("named", at=100).model_copy(update={"observation_priority": True})
+    queue.offer(named)
+    queue.offer(event("ordinary-1", at=101))
+    queue.offer(event("ordinary-2", at=102))
+    assert set(queue.pending) == {"named", "ordinary-2"}
+    assert queue.take(110, active=True, context=()).focus == named
 
 
 def test_ready_other_unit_is_not_blocked_by_updated_head():
@@ -49,15 +59,16 @@ def test_ready_other_unit_is_not_blocked_by_updated_head():
     assert queue.take(110, active=True, context=()).focus == other
 
 
-def test_round_robin_services_another_unit_before_same_unit_siblings():
+def test_recent_ready_focus_precedes_older_ordinary_foci():
     queue = ObservationQueue(SCOPE)
     queue.offer(event("one", at=100))
     queue.offer(event("two", at=101))
     other = event("other", at=102).model_copy(update={"thread": "other"})
     queue.offer(other)
     snapshot = queue.take(110, active=True, context=())
+    assert snapshot.focus == other
     queue.finish(snapshot.sequence)
-    assert queue.take(140, active=True, context=()).focus == other
+    assert queue.take(118, active=True, context=()).focus.ref.event_id == "two"
 
 
 def test_unknown_success_and_quiet_group_are_not_outages():

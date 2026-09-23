@@ -73,7 +73,6 @@ def controller():
 def propose(c, event, *, at=105, sequence=1, epoch=0):
     assert c.observe_committed_event(event)
     assert c.apply_semantic_observation(observation(event, sequence=sequence))
-    c._set(threshold=0.000001)
     proposal = c.advance(at, controller_epoch=epoch, host_available=True)
     assert proposal is not None
     return proposal
@@ -160,7 +159,7 @@ def test_reinterpretation_recomputes_attention_without_reusing_old_stimulus():
     )
 
     assert sum(c.rates(105).values()) == 0
-    assert c.state.attentions[event.ref.event_id] == 0
+    assert event.ref.event_id not in c.state.attentions
     assert c.belief("topic", "A", 105) == dynamics.IDLE
 
 
@@ -310,7 +309,6 @@ def test_terminal_first_receipt_consumes_original_proposal_without_considered_re
 
     assert c.state.consumed[event.ref.event_id] == event.ref.revision
     assert c.state.last_accepted == 106
-    c._set(threshold=0.000001)
     assert c.advance(107, controller_epoch=0, host_available=True) is None
     assert c.advance(120, controller_epoch=0, host_available=True) is None
 
@@ -529,7 +527,11 @@ def test_unknown_dominant_or_tied_dimension_does_not_create_a_determinate_estima
     answers = {**score.answers, dimension: mixed_choice(dimension, probabilities)}
     assert c.apply_semantic_observation(score.model_copy(update={"answers": answers}))
     assert c.state.observations[event.ref.event_id].answers[dimension] == answers[dimension]
-    assert not c.state.candidates
+    if dimension == "information_state":
+        # Topic novelty is irrelevant to a clear invitation addressed to Yuki.
+        assert event.ref.event_id in c.state.candidates
+    else:
+        assert not c.state.candidates
 
 
 @pytest.mark.parametrize(

@@ -11,6 +11,7 @@ from yuki_participation.controller import Controller
 from yuki_participation.models import (
     Choice,
     Feedback,
+    HostUnitOption,
     Observation,
     Scope,
     ScopedEvent,
@@ -123,6 +124,61 @@ def test_unknown_does_not_create_high_default_floor():
     assert not c.rates(110)
 
 
+def test_addressed_invitation_can_use_host_new_unit_without_topic_selection():
+    from yuki_participation.controller import State
+
+    option = HostUnitOption(key="new", thread="topic", target="A")
+    e = event(unit_ambiguous=True, unit_options=(option,))
+    c = controller()
+    assert c.observe_committed_event(e)
+    observed = observation(e, info="unknown").model_copy(
+        update={
+            "answers": {
+                **observation(e, info="unknown").answers,
+                "unit_selection": Choice(
+                    choice="unknown", probabilities={"new": 0.45, "unknown": 0.55}
+                ),
+            },
+        }
+    )
+    assert c.apply_semantic_observation(observed)
+    assert c.state.observations[e.ref.event_id].unit_resolution == "semantic_new"
+    proposal = c.advance(100, controller_epoch=0, host_available=True)
+    assert proposal is not None and proposal.sources == (e.ref,)
+    assert proposal.thread == "topic" and proposal.target_hint == "A"
+
+    # Old durable snapshots remain loadable without reviving the removed gate.
+    saved = c.state.model_dump(mode="json")
+    saved.update(threshold=0.6, hazard=0.3)
+    restored = State.model_validate(saved)
+    assert "threshold" not in restored.model_fields_set
+    assert "hazard" not in restored.model_fields_set
+
+
+def test_name_priority_cannot_turn_non_invitation_into_a_proposal():
+    e = event(observation_priority=True)
+    c = controller()
+    c.observe_committed_event(e)
+    assert c.apply_semantic_observation(observation(e, act="other_exchange"))
+    assert c.advance(100, controller_epoch=0, host_available=True) is None
+
+
+def test_observation_gets_fresh_window_but_cannot_resurrect_stale_invitation():
+    e = event()
+    c = controller()
+    c.observe_committed_event(e)
+    fresh = observation(e).model_copy(update={"received_at": 120})
+    assert c.apply_semantic_observation(fresh)
+    assert c.state.candidates[e.ref.event_id].support.valid_until == 195
+    assert c.advance(120, controller_epoch=0, host_available=True) is not None
+
+    old = controller()
+    old.observe_committed_event(e)
+    stale = observation(e).model_copy(update={"received_at": 191})
+    assert old.apply_semantic_observation(stale)
+    assert not old.state.candidates
+
+
 def test_closed_boundary_survives_window_and_silence():
     c = controller()
     e = event()
@@ -150,7 +206,6 @@ def test_proposal_consumption_survives_feedback_replay_and_restart(tmp_path):
     e = event()
     c.observe_committed_event(e)
     c.apply_semantic_observation(observation(e))
-    c._set(threshold=0.000001)
     p = c.advance(105, controller_epoch=0, host_available=True)
     assert p is not None
     feedback = Feedback(
@@ -171,21 +226,21 @@ def test_proposal_consumption_survives_feedback_replay_and_restart(tmp_path):
     _, saved = store.load(SCOPE)
     resumed = Controller.restore(saved, 110)
     assert resumed.state.pending == p.proposal_id
-    assert resumed.state.threshold == c.state.threshold
+    assert "threshold" not in resumed.state.model_fields_set
     assert not resumed.advance(111, controller_epoch=0, host_available=True)
     assert store.save(resumed.state, expected_revision=revision) == 2
     store.close()
 
 
-def test_busy_time_and_epoch_change_cannot_accumulate_catchup():
+def test_disabled_time_and_epoch_change_cannot_create_stale_proposal():
     c = controller()
     e = event()
     c.observe_committed_event(e)
     c.apply_semantic_observation(observation(e))
     c.advance(105, controller_epoch=0, host_available=False)
-    assert c.state.hazard == 0
+    assert not c.state.pending
     c.advance(106, controller_epoch=1, host_available=True)
-    assert c.state.hazard == 0
+    assert not c.state.pending
     c.advance(1000, controller_epoch=1, host_available=True)
     assert c.state.skipped_seconds > 0
     assert not c.state.pending

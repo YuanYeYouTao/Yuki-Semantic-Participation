@@ -6,8 +6,6 @@ import hashlib
 import json
 from pathlib import Path
 
-import pytest
-
 from scripts.group_chat_experiment import replay_scene
 from scripts.idle_wake_experiment import run as run_idle_wake
 
@@ -84,19 +82,11 @@ def test_timer_can_propose_without_new_messages_but_not_from_idle_chatter() -> N
     assert incidental["proposals_after_last_inbound"] == 0
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Sparse observer can propose on old support before a newer stop is scored",
-)
 def test_pending_explicit_stop_blocks_new_proposal() -> None:
     result = asyncio.run(replay_scene(scene("stop_and_silence"), FIXTURE["seed"]))
     assert result["proposals_after_unobserved_boundary"] == 0
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason="Closure can expire in the sparse observation queue before it is evaluated",
-)
 def test_pending_explicit_close_blocks_old_source() -> None:
     result = asyncio.run(replay_scene(scene("closure_and_reopen"), FIXTURE["seed"]))
     assert result["proposals_after_unobserved_boundary"] == 0
