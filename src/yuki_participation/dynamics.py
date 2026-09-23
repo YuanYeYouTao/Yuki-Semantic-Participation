@@ -158,10 +158,10 @@ def intrinsic_opportunity(
     ratio = own_count / total if total else 0.0
     share_cost = 0.1 * min(1.0, total) * max(0.0, ratio - 0.35)
     return (
-        0.4 * participation_factor(tendency) * recovery * context * (1 - activity) * (1 - speech)
+        0.55 * participation_factor(tendency) * recovery * context * (1 - activity) * (1 - speech)
         - 0.04 * compute
         - share_cost
         - 0.025
-        - 0.05
-        - 0.05 * no_reply
+        - 0.025
+        - 0.08 * no_reply
     )
