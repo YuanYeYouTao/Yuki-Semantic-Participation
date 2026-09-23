@@ -2,10 +2,10 @@
 
 from .models import HostUnitOption
 
-REVISION = "v6-zh-3"
+REVISION = "v6-zh-4"
 CRITERIA = {
     "interaction_mark": {
-        "invite_yuki": "向Yuki发起交流邀请，包括明确停止后的重新邀请",
+        "invite_yuki": "向Yuki发起交流邀请；单独呼唤Yuki或请她出来也属于邀请，不要求已有话题",
         "extend_yuki": "继续询问、回应或纠正Yuki的表达",
         "open_group": "向全群提出内容",
         "other_exchange": "其他人之间交流",
@@ -43,7 +43,8 @@ CRITERIA = {
 INSTRUCTIONS = {
     "interaction_mark": (
         "focus对Yuki的交际行为是什么？纠正不等于退出，谢谢不等于结束。"
-        "明确停止后又请Yuki参与是invite_yuki；未停止的继续或纠正是extend_yuki。"
+        "明确停止后又请Yuki参与、直接呼唤Yuki名字或请她出来是invite_yuki；"
+        "未停止的继续或纠正是extend_yuki。引用或谈论名字而未向她说话不算邀请。"
     ),
     "information_state": "focus相对context带来了什么内容变化？",
     "floor_state": "focus留下的回应机会属于谁？",

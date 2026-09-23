@@ -15,6 +15,13 @@ Host 先完成 canonical 入库、可见性和授权，再传递有版本的 `Sc
 适配器映射结果后，Controller 再核验完整分布、唯一赢家及其所属选项，原 Snapshot 不被改写。
 target 是语义对象，不能成为读取私人资料的 principal。
 
+Host 可以对包含机器人称呼的焦点标记 `observation_priority`，使其在稀疏队列中先交给 Jev；
+此标记不是 `@`、回复授权或候选资格。Jev 若判断为明确邀请/续聊且楼层留给 Yuki，
+即便旧讨论 `unit_selection=unknown`，Controller 也只可采用 Host 已给出的 `new` 单元，
+且须核对该单元的 thread 和作者目标；其它歧义继续保持未知。
+合格观测直接提出机会，不等待随机强度积分。Host 对新的 proposal 仍执行来源、
+停止边界、同会话占用、代际、权限和 Main Agent 接纳检查。
+
 Jev 请求采用紧凑语义投影：中性局部引用、原文、作者角色、讨论与对象关系、引用关系、相对时间和省略说明。
 scope、generation、revision、sequence 等本地管理字段留在原 Snapshot 中校验，不发送给模型。
 小快照保留完整焦点和已提供的引用锚点，最多六条上下文；超界先整条去除非关键 context。
@@ -22,7 +29,7 @@ scope、generation、revision、sequence 等本地管理字段留在原 Snapshot
 不无限重评同一材料。字节不是 token，token 只记录 Provider usage。
 
 interaction、information、floor 是新资格所需的必需维度；缺失或非法时保留诊断并计健康失败。
-合法 unknown 不计失败，也不会生成确定资格或停止边界；可用软状态仍按完整概率分布更新。
+合法 unknown 不计失败；若交际行为和楼层均明确表示邀请 Yuki，信息新旧或旧讨论归属 unknown 不单独否决邀请。其余缺乏明确交际行为或楼层的 unknown 不生成资格或停止边界；软状态仍按完整概率分布更新。
 单个辅助 boundary 缺失不等于整个 Provider 故障。明确停止和重新邀请的作用范围均由 boundary 观测约束。
 
 ## 接纳与执行

@@ -9,7 +9,6 @@ from yuki_participation.scheduling import ObservationQueue
 def test_intrinsic_opportunity_needs_no_external_source_and_does_not_repeat_immediately():
     c = controller()
     assert not c.rates(2000)
-    c._set(threshold=0.000001)
     proposal = None
     for at in range(102, 2002, 2):
         proposal = c.advance(at, controller_epoch=0, host_available=True, intrinsic_allowed=True)
@@ -19,7 +18,7 @@ def test_intrinsic_opportunity_needs_no_external_source_and_does_not_repeat_imme
     assert proposal.kind is CandidateKind.INTRINSIC
     assert proposal.sources == () and proposal.support is None
     assert c.observe_run_feedback(feedback(proposal, outcome="no_reply", at=at))
-    assert c.intrinsic_rate(at + 2) == 0
+    assert not c.intrinsic_eligible(at + 2)
 
 
 def test_fresh_human_message_restarts_intrinsic_quiet_window():
@@ -27,8 +26,8 @@ def test_fresh_human_message_restarts_intrinsic_quiet_window():
     human = source("recent-human", at=1000)
     c.advance(1000, controller_epoch=0, host_available=False)
     assert c.observe_committed_event(human)
-    assert c.intrinsic_rate(1899) == 0
-    assert c.intrinsic_rate(3000) > 0
+    assert not c.intrinsic_eligible(1899)
+    assert c.intrinsic_eligible(3000)
 
 
 def test_real_self_speech_cooldown_survives_event_pruning():
@@ -38,8 +37,8 @@ def test_real_self_speech_cooldown_survives_event_pruning():
     assert c.observe_committed_event(own)
     c.advance(1700, controller_epoch=0, host_available=False)
     assert own.ref.event_id not in c.state.events
-    assert c.intrinsic_rate(2000) == 0
-    assert c.intrinsic_rate(2300) > 0
+    assert not c.intrinsic_eligible(2000)
+    assert c.intrinsic_eligible(2300)
 
 
 def test_semantic_selection_of_real_self_anchor_recognizes_unquoted_continuation():

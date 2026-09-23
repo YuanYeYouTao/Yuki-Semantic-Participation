@@ -46,6 +46,7 @@ class ScopedEvent(Record):
     reply_to: SourceRef | None = None
     unit_ambiguous: bool = False
     unit_options: tuple[HostUnitOption, ...] = Field(default=(), max_length=16)
+    observation_priority: bool = False
 
     @model_validator(mode="after")
     def valid_options(self) -> ScopedEvent:

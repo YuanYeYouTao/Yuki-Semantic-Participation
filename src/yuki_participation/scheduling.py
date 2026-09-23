@@ -54,12 +54,18 @@ class ObservationQueue:
             return
         self.pending[key] = Pending(event, kind, old.first_dirty if old else event.at, event.at)
         while len(self.pending) > self.max_pending:
-            self.pending.popitem(last=False)
+            evict = next(
+                (key for key, item in self.pending.items() if not item.event.observation_priority),
+                next(iter(self.pending)),
+            )
+            del self.pending[evict]
             self.dropped += 1
 
     @staticmethod
     def expires_at(pending: Pending) -> float:
-        return pending.event.at + (90 if pending.kind == CandidateKind.CONVERSATION else 180)
+        # A focus older than the conversation window is context, not a useful
+        # request to score. Candidate validity starts only after observation.
+        return pending.event.at + (75 if pending.kind == CandidateKind.CONVERSATION else 180)
 
     def discard_unavailable(self, now: float, events: dict[str, ScopedEvent]) -> None:
         """Drop revoked or expired facts before their text can leave the host."""
@@ -82,21 +88,22 @@ class ObservationQueue:
                 self.expired += 1
         if not self.pending:
             return None
-        debounce, interval, wait = (8, 30, 60) if active else (30, 90, 180)
+        debounce, interval, wait = (2, 8, 15) if active else (3, 12, 20)
         if now < self.last_call + interval:
             return None
         # A freshly edited head must not hold up a ready focus in another unit.
-        ready = next(
-            (
-                (key, pending)
-                for key, pending in self.pending.items()
-                if now >= min(pending.last_dirty + debounce, pending.first_dirty + wait)
-            ),
-            None,
-        )
-        if ready is None:
+        ready = [
+            (key, pending)
+            for key, pending in self.pending.items()
+            if now >= min(pending.last_dirty + debounce, pending.first_dirty + wait)
+        ]
+        if not ready:
             return None
-        key, pending = ready
+        # Host priority only chooses which real focus Jev sees first; it never
+        # classifies that focus or grants a reply. Preserve older invitations,
+        # while ordinary sparse sampling follows the newest conversation turn.
+        priority = next((item for item in ready if item[1].event.observation_priority), None)
+        key, pending = priority or max(ready, key=lambda item: item[1].event.at)
         del self.pending[key]
         unit = (pending.event.thread, pending.event.target)
         for sibling, item in list(self.pending.items()):

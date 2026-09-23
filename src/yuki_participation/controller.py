@@ -9,7 +9,7 @@ import random
 from typing import Literal, TypeGuard
 from uuid import uuid4
 
-from pydantic import Field
+from pydantic import Field, model_validator
 
 from . import dynamics
 from .models import (
@@ -121,6 +121,7 @@ class StoredObservation(Record):
     request_bytes: int | None = None
     matching_self_anchor: SourceRef | None = None
     resolved_unit: HostUnitOption | None = None
+    unit_resolution: Literal["observer", "semantic_new"] | None = None
 
     @classmethod
     def from_observation(cls, observation: Observation) -> StoredObservation:
@@ -131,6 +132,7 @@ class StoredObservation(Record):
                 context=tuple(e.ref for e in observation.snapshot.context),
                 sequence=observation.snapshot.sequence,
             ),
+            unit_resolution="observer" if observation.resolved_unit is not None else None,
         )
 
 
@@ -143,8 +145,6 @@ type BeliefAction = (
 class State(Record):
     scope: Scope
     now: float = Field(ge=0, allow_inf_nan=False)
-    threshold: float = Field(gt=0, allow_inf_nan=False)
-    hazard: float = 0
     epoch: int = 0
     events: dict[str, ScopedEvent] = Field(default_factory=dict)
     observations: dict[str, StoredObservation] = Field(default_factory=dict)
@@ -179,15 +179,22 @@ class State(Record):
     seed_claims: dict[str, float] = Field(default_factory=dict)
     seed_attempts: dict[str, SeedAttempt] = Field(default_factory=dict)
 
+    @model_validator(mode="before")
+    @classmethod
+    def discard_legacy_random_gate(cls, value: object) -> object:
+        # Existing durable snapshots contain these two obsolete fields.
+        if isinstance(value, dict) and ("threshold" in value or "hazard" in value):
+            return {key: item for key, item in value.items() if key not in {"threshold", "hazard"}}
+        return value
+
 
 class Controller:
-    """Default zero-graph attention. Parameters are engineering baselines, not calibrated."""
+    """Semantic opportunities with a single Host-owned admission boundary."""
 
     def __init__(self, scope: Scope, now: float, *, rng: random.Random | None = None) -> None:
-        self.rng = rng or random.Random()
-        self.state = State(
-            scope=scope, now=now, threshold=self.rng.expovariate(1), intrinsic_base_at=now
-        )
+        # Keep the optional argument for callers restoring older experiments;
+        # proposal timing is no longer a random draw.
+        self.state = State(scope=scope, now=now, intrinsic_base_at=now)
 
     def _set(self, **updates: object) -> None:
         self.state = self.state.model_copy(update=updates)
@@ -406,8 +413,36 @@ class Controller:
             return False
         # Replace interpretation by source, not append another social event.
         self._invalidate_observation(key)
-        if observation.resolved_unit is not None:
-            unit = observation.resolved_unit
+        act = observation.answers.get("interaction_mark")
+        floor = observation.answers.get("floor_state")
+        semantic_new = None
+        if (
+            event.kind == "human"
+            and event.unit_ambiguous
+            and observation.resolved_unit is None
+            and (selection := observation.answers.get("unit_selection")) is not None
+            and selection.choice == "unknown"
+            and _dimension_known(act)
+            and act.choice in {"invite_yuki", "extend_yuki"}
+            and _dimension_known(floor)
+            and floor.choice == "yuki"
+        ):
+            # Addressed speech does not require choosing an earlier topic.
+            # Only use the Host's fresh unit; never invent a target or identity.
+            semantic_new = next(
+                (
+                    option
+                    for option in event.unit_options
+                    if option.key == "new"
+                    and option.thread == event.thread
+                    and option.target == event.author
+                    and option.self_anchor is None
+                ),
+                None,
+            )
+        effective_unit = observation.resolved_unit or semantic_new
+        if effective_unit is not None:
+            unit = effective_unit
             event = event.model_copy(
                 update={"thread": unit.thread, "target": unit.target, "unit_ambiguous": False}
             )
@@ -434,15 +469,19 @@ class Controller:
             else None
         )
         self.state.observations[key] = StoredObservation.from_observation(observation).model_copy(
-            update={"matching_self_anchor": matching_anchor},
+            update={
+                "matching_self_anchor": matching_anchor,
+                "resolved_unit": effective_unit,
+                "unit_resolution": "semantic_new"
+                if semantic_new is not None
+                else ("observer" if observation.resolved_unit is not None else None),
+            },
         )
         self.state.candidates.pop(key, None)
         self.state.boundaries.pop(key, None)
         if event.unit_ambiguous:
             return True
-        act = observation.answers.get("interaction_mark")
         info = observation.answers.get("information_state")
-        floor = observation.answers.get("floor_state")
         boundary = observation.answers.get("boundary_scope")
         if (
             _dimension_known(act)
@@ -462,7 +501,11 @@ class Controller:
         self._refresh_releases()
         if self.state.consumed.get(key, 0) >= event.ref.revision:
             return True
-        if not (_dimension_known(act) and _dimension_known(info) and _dimension_known(floor)):
+        if not (_dimension_known(act) and _dimension_known(floor)):
+            return True
+        addressed = act.choice in {"invite_yuki", "extend_yuki"} and floor.choice == "yuki"
+        open_floor = act.choice == "open_group" and floor.choice in {"open", "yuki"}
+        if not (addressed or open_floor):
             return True
         if act.p("close_topic") + act.p("ask_yuki_stop") >= 0.5:
             return True
@@ -480,13 +523,21 @@ class Controller:
                 attempt
                 and attempt.sent_at is not None
                 and attempt.response is None
-                and info.p("new") < 0.5
+                and (info is None or info.p("new") < 0.5)
             ):
                 return True
         value = 0.5 * (act.p("invite_yuki") + act.p("extend_yuki") + 0.6 * act.p("open_group"))
-        value += 0.5 * (info.p("new") + 0.8 * info.p("refine"))
-        # Floor validity is intentionally shorter than source decay/seed lifetime.
-        until = event.at + (90 if snap.kind == CandidateKind.CONVERSATION else 180)
+        if _dimension_known(info):
+            value += 0.5 * (info.p("new") + 0.8 * info.p("refine"))
+        if snap.kind == CandidateKind.CONVERSATION and observation.received_at >= event.at + 90:
+            return True  # A stale result remains evidence but cannot revive an old invitation.
+        # Bound total source age while allowing the evaluated opportunity a real
+        # response window. This is not a permission to reply to old conversation.
+        until = (
+            min(event.at + 150, observation.received_at + 75)
+            if snap.kind == CandidateKind.CONVERSATION
+            else event.at + 180
+        )
         support = Support(
             kind="observed",
             scope=self.state.scope,
@@ -993,11 +1044,11 @@ class Controller:
         value = {"join": 1, "stay": 0, "quiet": -1}[last.delta.engage]
         return value * math.exp(-(now - last.at) / 180)
 
-    def intrinsic_rate(self, now: float) -> float:
-        """An optional SELF impulse with no fabricated message or semantic observation."""
+    def intrinsic_eligible(self, now: float) -> bool:
+        """An optional SELF opportunity with no fabricated semantic observation."""
         base = self.state.intrinsic_base_at
         if base is None:
-            return 0.0
+            return False
         quiet = now - max(base, self.state.last_human_at or base)
         since_attempt = now - self.state.last_intrinsic_at
         recent_speech = self.state.last_self_message_at or -1e9
@@ -1010,8 +1061,8 @@ class Controller:
                 for boundary in self.state.boundaries.values()
             )
         ):
-            return 0.0
-        return (1 - math.exp(-(quiet - 900) / 1800)) / 21600
+            return False
+        return True
 
     def advance(
         self,
@@ -1025,52 +1076,32 @@ class Controller:
             raise ValueError("clock_must_be_finite_and_monotonic")
         if controller_epoch != self.state.epoch:
             # Switching invalidates pending proposals, not feedback for accepted runs.
-            self._set(epoch=controller_epoch, pending=None, hazard=0, now=now)
+            self._set(epoch=controller_epoch, pending=None, now=now)
             return None
         if self.state.intrinsic_base_at is None:
             self._set(intrinsic_base_at=now)
         elapsed = now - self.state.now
         if elapsed > 5:
-            # A Host can rotate bounded scope sessions. Preserve the independent
-            # clock exposure while still skipping stale source-driven rates.
-            if (
-                intrinsic_allowed
-                and host_available
-                and not self.state.capacity_blocked
-                and not self.state.pending
-            ):
-                missed = elapsed - 5
-                start = self.state.now
-                rate_sum = sum(
-                    self.intrinsic_rate(start + missed * (part + 0.5) / 4) for part in range(4)
-                )
-                self._set(hazard=self.state.hazard + missed * rate_sum / 4)
-            self._set(skipped_seconds=self.state.skipped_seconds + elapsed - 5, now=now - 5)
-        start = self.state.now
-        steps = max(1, math.ceil((now - start) / 0.25))
-        delta = (now - start) / steps
-        can_propose = (
-            host_available
-            and not self.state.capacity_blocked
-            and not self.state.pending
-            and now - self.state.last_accepted >= 8
-        )
-        for i in range(steps):
-            at = start + (i + 1) * delta
-            if can_propose:
-                intrinsic = self.intrinsic_rate(at) if intrinsic_allowed else 0.0
-                rate = sum(self.rates(at).values()) + intrinsic
-                self._set(hazard=self.state.hazard + rate * delta)
+            self._set(skipped_seconds=self.state.skipped_seconds + elapsed - 5)
+        can_propose = host_available and not self.state.capacity_blocked and not self.state.pending
         self._set(now=now)
         self._prune()
-        if not can_propose or self.state.hazard < self.state.threshold:
+        if not can_propose:
             return None
-        rates = self.rates(now)
-        if intrinsic_allowed:
-            rates["__intrinsic__"] = self.intrinsic_rate(now)
-        if not sum(rates.values()):
+        groups = self._eligible_groups(now)
+        if groups:
+            key = max(
+                groups,
+                key=lambda candidate_key: (
+                    self.state.candidates[candidate_key].value.value
+                    * self.state.candidates[candidate_key].floor.value,
+                    self.state.candidates[candidate_key].event.at,
+                ),
+            )
+        elif intrinsic_allowed and self.intrinsic_eligible(now):
+            key = "__intrinsic__"
+        else:
             return None
-        key = self.rng.choices(list(rates), weights=list(rates.values()))[0]
         if key == "__intrinsic__":
             proposal = Proposal(
                 proposal_id=str(uuid4()),
@@ -1087,7 +1118,7 @@ class Controller:
             self._set(last_intrinsic_at=now)
         else:
             candidate = self.state.candidates[key]
-            members = self._eligible_groups(now)[key]
+            members = groups[key]
             proposal = Proposal(
                 proposal_id=str(uuid4()),
                 scope=self.state.scope,
@@ -1105,7 +1136,7 @@ class Controller:
                 expires_at=min(member.support.valid_until for member in members),
             )
         self.state.proposals[proposal.proposal_id] = proposal
-        self._set(pending=proposal.proposal_id, hazard=0, threshold=self.rng.expovariate(1))
+        self._set(pending=proposal.proposal_id)
         return proposal
 
     def observe_run_feedback(self, feedback: Feedback) -> bool:
@@ -1301,7 +1332,7 @@ class Controller:
     def restore(cls, state: State, now: float) -> Controller:
         controller = cls(state.scope, now)
         # No elapsed-time catch-up and no resubmission of an uncertain proposal.
-        controller.state = state.model_copy(update={"now": now, "hazard": 0}, deep=True)
+        controller.state = state.model_copy(update={"now": now}, deep=True)
         if controller.state.last_human_at is None:
             last_human = max(
                 (event.at for event in state.events.values() if event.kind == "human"),

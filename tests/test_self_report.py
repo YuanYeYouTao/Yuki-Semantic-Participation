@@ -26,7 +26,6 @@ def test_self_report_does_not_change_other_state_or_renew_support():
     e = event()
     c.observe_committed_event(e)
     c.apply_semantic_observation(observation(e))
-    c._set(threshold=0.000001)
     p = c.advance(105, controller_epoch=0, host_available=True)
     c.observe_run_feedback(
         Feedback(run_ref="run", proposal_id=p.proposal_id, sequence=1, outcome="accepted", at=105)

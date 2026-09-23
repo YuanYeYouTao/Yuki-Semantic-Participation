@@ -22,6 +22,7 @@
 - 没有日配额；固定工具合同及原 Agent 执行机制不由此系统更改。
 - 关闭 semantic 或持续故障时由宿主唯一 selector 恢复 legacy；总开关关闭时仍为 off。
 - 合法 unknown 不等于 Provider 故障；回退恢复须有真实成功观测，队列过期不代表恢复。
+- 语义观测确认邀请或适合接话后立即提出机会，不再等待随机强度积分。直呼名字只提高观察顺序，不是 @ 或直接触发。
 
 ## 开发
 
@@ -30,7 +31,7 @@ python -m pip install -e '.[dev]'
 pytest -q
 ```
 
-Jev 使用固定 `jev-1.13.0`、版本化 `v6-zh-3` rubric 与原生 `POST /v1/systemone`，密钥由调用者注入。
+Jev 使用固定 `jev-1.13.0`、版本化 `v6-zh-4` rubric 与原生 `POST /v1/systemone`，密钥由调用者注入。
 遵循 [TypeSafe API](https://docs.typesafe.ai/api)；不将密钥、真实对话或运行数据库提交仓库。
 测试使用明确标记的合成材料，不会自动调用付费 API 或发出 QQ 消息。
 
