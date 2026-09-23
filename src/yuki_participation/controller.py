@@ -362,6 +362,8 @@ class Controller:
         )
 
     def apply_semantic_observation(self, observation: Observation) -> bool:
+        if observation.snapshot.kind is CandidateKind.INTRINSIC:
+            return False
         snap = observation.snapshot
         event = snap.focus
         key = event.ref.event_id
