@@ -5,7 +5,7 @@ Yuki 侧权限、迁移和配置详见其 `docs/architecture/semantic-participat
 
 ## 当前交付边界
 
-独立控制器与 Yuki SELF 垂直接入已实现，旧版本曾进入生产；本开发分支已将旧的闲置强度计算
+独立控制器与 Yuki SELF 垂直接入已实现，旧版本曾进入生产；当前独立库主线已将旧的闲置强度计算
 与固定静默条件替换为连续机会值，并以固定合成负载及定向回归验证。
 接纳、原 Work 恢复、固定主 Agent 入口、工具回执、静默自省、发送效果与自报过滤已经接线；
 本轮修正的合并和部署状态以对应 PR 与发布记录为准；尚未完成真实 QQ 社交效果验收。
@@ -50,7 +50,7 @@ Yuki 侧权限、迁移和配置详见其 `docs/architecture/semantic-participat
 - 局部重算窗最多 10 分钟；容量裁剪可能缩短窗口，数值基线单独保存。
 - 控制器快照默认每 scope 1 MiB、总计 16 MiB，超限显式报告；不等于主 Agent 的历史预算。
 - Yuki seed 每次扫描有界，按 `(max(updated_at, valid_from), id)` 持久前行；空的无合法 lineage 页也推进，新增 evidence 更新 fact 变更时间。
-- 默认 κ=0。开发分支已删除旧 `rates()`/`rate()` 及固定静默条件；非请求式 proposal 由[连续净机会值](autonomous-evolution.md)决定。无来源 `intrinsic` 的自身恢复与本群互动痕迹共同演化；长期没有新的真人互动时公开机会值趋负。请求间隔和来源防重不是每日发言额度。
+- 默认 κ=0。旧 `rates()`/`rate()` 及固定静默条件已删除；非请求式 proposal 由[连续净机会值](autonomous-evolution.md)决定。无来源 `intrinsic` 的自身恢复与本群互动痕迹共同演化；长期没有新的真人互动时公开机会值趋负。请求间隔和来源防重不是每日发言额度。当前参数与新旧回放对照见[群聊负载实验](group-chat-experiment.md)。
 
 ## 定向工程验证
 
@@ -60,7 +60,7 @@ Yuki 侧权限、迁移和配置详见其 `docs/architecture/semantic-participat
 
 Yuki 定向覆盖真实数据库接纳防重、busy 不消费、多来源完整性、主开关和模式切换、缺 key 与合法 unknown、
 慢观察不占全局锁、memory-only seed、generation 拒绝、原 Presence/Work 恢复及 SELF 工具与记忆边界。
-工具回执、静默自省、质量与 lineage 检查有独立回归。现有数据库迁移按 Yuki 当前链追加至 0068，
+工具回执、静默自省、质量与 lineage 检查有独立回归。现有数据库迁移按 Yuki 当前链追加至 0070，
 本库不内置或管理这些表。
 
 主 Agent 请求对照使用两种 Provider 实际序列化协议与 Responses 原生工具结构，并覆盖第 24 次请求后续跑。
