@@ -2,7 +2,7 @@
 
 稀疏语义观测驱动的参与控制器，依据 Yuki 语义参与动力系统任务书 V6 开发。
 
-**状态：独立库及 Yuki 宿主接入已在开发工作树实现并完成定向验证；尚未部署生产。**
+**状态：独立库已接入 Yuki 宿主，2026-09-23 的生产只读快照显示两个群的有效 owner 为 `semantic`；当前线上接话效果尚无充分样本。**
 独立人工中文标注、真实同模型影子对照及真实 QQ 端到端验收仍未完成。
 数值性质、开发者合成样本和接口实测分别报告，不将它们当作群聊准确率或效果证明。
 
@@ -45,3 +45,4 @@ python scripts/replay_shadow.py --yuki-repo /path/to/Yuki-QQbot --output /tmp/sh
 
 实施范围、真实 Jev 合成请求和剩余验收见 [进度和边界](docs/implementation.md)，
 接纳、撤回、恢复和回执约定见 [宿主协议](docs/protocol.md)。
+以 Yuki 服务器只读元数据校准的测试集、回放结果及群聊验收方案见 [群聊负载实验](docs/group-chat-experiment.md)。

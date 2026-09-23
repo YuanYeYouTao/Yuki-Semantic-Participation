@@ -1,0 +1,858 @@
+{
+  "kind": "full_size_synthetic_day_sharded_controller_replay",
+  "provenance": {
+    "fixture_sha256": "f2012e53a60fc56b53601f2b4b1e20853fca5f5ae881e25a4d217a6ca36a3230",
+    "rubric_revision": "v6-zh-3",
+    "source_sha256": {
+      "src/yuki_participation/controller.py": "cc55d24b99cafad38e1a82500769041983235e67b5e0acb9f6da435ec39b0df9",
+      "src/yuki_participation/dynamics.py": "c318c78c86eeb13c57da14825fdc0dd3d3e4ba20e7d4c5ec61d8ee391bd24771",
+      "src/yuki_participation/scheduling.py": "af213b022261b63edb474114857edd581c76b035b3a54bf3a694fa8800c15df1",
+      "src/yuki_participation/session.py": "0c5923ecdb3b4356e1c38ecac60b54f91150a45ffcf64f39c957406666bd673e",
+      "scripts/group_chat_experiment.py": "017d2b047bfbdef0991d63ef54a3c3f5de4630dbcbabafe597bcab90899ba0fe"
+    }
+  },
+  "days_replayed": 48,
+  "summary": {
+    "human_messages": 15952,
+    "exogenous_self_messages": 8653,
+    "fixture_observer_calls": 10636,
+    "queue_expired": 5277,
+    "proposals": 1274,
+    "proposals_with_no_at_source": 675,
+    "proposals_after_unobserved_boundary": 26,
+    "timer_proposal_bins": {
+      "no_new_event_2s": 1202,
+      "no_new_human_30s": 432,
+      "no_new_human_90s": 0,
+      "no_new_human_600s": 0
+    }
+  },
+  "runtime_seconds": 298.03,
+  "days": [
+    {
+      "rank": 1,
+      "synthetic_day": 1,
+      "human_messages": 827,
+      "exogenous_self_messages": 451,
+      "fixture_observer_calls": 570,
+      "queue_expired": 256,
+      "proposals": 77,
+      "proposals_with_no_at_source": 35,
+      "proposals_after_unobserved_boundary": 3,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 74,
+        "no_new_human_30s": 25,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 2,
+      "human_messages": 867,
+      "exogenous_self_messages": 468,
+      "fixture_observer_calls": 553,
+      "queue_expired": 314,
+      "proposals": 70,
+      "proposals_with_no_at_source": 35,
+      "proposals_after_unobserved_boundary": 2,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 68,
+        "no_new_human_30s": 18,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 3,
+      "human_messages": 547,
+      "exogenous_self_messages": 314,
+      "fixture_observer_calls": 360,
+      "queue_expired": 185,
+      "proposals": 41,
+      "proposals_with_no_at_source": 17,
+      "proposals_after_unobserved_boundary": 2,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 39,
+        "no_new_human_30s": 16,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 4,
+      "human_messages": 763,
+      "exogenous_self_messages": 497,
+      "fixture_observer_calls": 525,
+      "queue_expired": 238,
+      "proposals": 60,
+      "proposals_with_no_at_source": 32,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 59,
+        "no_new_human_30s": 23,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 5,
+      "human_messages": 276,
+      "exogenous_self_messages": 173,
+      "fixture_observer_calls": 206,
+      "queue_expired": 70,
+      "proposals": 22,
+      "proposals_with_no_at_source": 10,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 22,
+        "no_new_human_30s": 11,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 6,
+      "human_messages": 63,
+      "exogenous_self_messages": 43,
+      "fixture_observer_calls": 43,
+      "queue_expired": 20,
+      "proposals": 2,
+      "proposals_with_no_at_source": 2,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 2,
+        "no_new_human_30s": 1,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 7,
+      "human_messages": 889,
+      "exogenous_self_messages": 506,
+      "fixture_observer_calls": 595,
+      "queue_expired": 293,
+      "proposals": 66,
+      "proposals_with_no_at_source": 29,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 63,
+        "no_new_human_30s": 17,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 8,
+      "human_messages": 706,
+      "exogenous_self_messages": 407,
+      "fixture_observer_calls": 471,
+      "queue_expired": 233,
+      "proposals": 67,
+      "proposals_with_no_at_source": 40,
+      "proposals_after_unobserved_boundary": 4,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 64,
+        "no_new_human_30s": 20,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 9,
+      "human_messages": 451,
+      "exogenous_self_messages": 266,
+      "fixture_observer_calls": 292,
+      "queue_expired": 159,
+      "proposals": 34,
+      "proposals_with_no_at_source": 18,
+      "proposals_after_unobserved_boundary": 1,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 29,
+        "no_new_human_30s": 10,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 10,
+      "human_messages": 673,
+      "exogenous_self_messages": 357,
+      "fixture_observer_calls": 439,
+      "queue_expired": 234,
+      "proposals": 59,
+      "proposals_with_no_at_source": 31,
+      "proposals_after_unobserved_boundary": 1,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 52,
+        "no_new_human_30s": 18,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 11,
+      "human_messages": 421,
+      "exogenous_self_messages": 267,
+      "fixture_observer_calls": 272,
+      "queue_expired": 149,
+      "proposals": 35,
+      "proposals_with_no_at_source": 20,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 33,
+        "no_new_human_30s": 12,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 13,
+      "human_messages": 382,
+      "exogenous_self_messages": 186,
+      "fixture_observer_calls": 252,
+      "queue_expired": 130,
+      "proposals": 34,
+      "proposals_with_no_at_source": 19,
+      "proposals_after_unobserved_boundary": 1,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 31,
+        "no_new_human_30s": 9,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 15,
+      "human_messages": 266,
+      "exogenous_self_messages": 164,
+      "fixture_observer_calls": 187,
+      "queue_expired": 79,
+      "proposals": 20,
+      "proposals_with_no_at_source": 12,
+      "proposals_after_unobserved_boundary": 1,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 20,
+        "no_new_human_30s": 8,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 16,
+      "human_messages": 109,
+      "exogenous_self_messages": 63,
+      "fixture_observer_calls": 60,
+      "queue_expired": 49,
+      "proposals": 2,
+      "proposals_with_no_at_source": 0,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 2,
+        "no_new_human_30s": 2,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 17,
+      "human_messages": 652,
+      "exogenous_self_messages": 387,
+      "fixture_observer_calls": 433,
+      "queue_expired": 218,
+      "proposals": 41,
+      "proposals_with_no_at_source": 27,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 36,
+        "no_new_human_30s": 14,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 18,
+      "human_messages": 966,
+      "exogenous_self_messages": 580,
+      "fixture_observer_calls": 638,
+      "queue_expired": 326,
+      "proposals": 78,
+      "proposals_with_no_at_source": 40,
+      "proposals_after_unobserved_boundary": 2,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 75,
+        "no_new_human_30s": 25,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 19,
+      "human_messages": 517,
+      "exogenous_self_messages": 280,
+      "fixture_observer_calls": 339,
+      "queue_expired": 178,
+      "proposals": 39,
+      "proposals_with_no_at_source": 23,
+      "proposals_after_unobserved_boundary": 1,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 37,
+        "no_new_human_30s": 17,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 20,
+      "human_messages": 120,
+      "exogenous_self_messages": 53,
+      "fixture_observer_calls": 77,
+      "queue_expired": 43,
+      "proposals": 7,
+      "proposals_with_no_at_source": 2,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 6,
+        "no_new_human_30s": 1,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 21,
+      "human_messages": 133,
+      "exogenous_self_messages": 69,
+      "fixture_observer_calls": 91,
+      "queue_expired": 42,
+      "proposals": 12,
+      "proposals_with_no_at_source": 4,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 12,
+        "no_new_human_30s": 4,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 23,
+      "human_messages": 75,
+      "exogenous_self_messages": 30,
+      "fixture_observer_calls": 48,
+      "queue_expired": 27,
+      "proposals": 11,
+      "proposals_with_no_at_source": 2,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 11,
+        "no_new_human_30s": 3,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 24,
+      "human_messages": 813,
+      "exogenous_self_messages": 454,
+      "fixture_observer_calls": 522,
+      "queue_expired": 290,
+      "proposals": 74,
+      "proposals_with_no_at_source": 34,
+      "proposals_after_unobserved_boundary": 1,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 69,
+        "no_new_human_30s": 25,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 25,
+      "human_messages": 302,
+      "exogenous_self_messages": 197,
+      "fixture_observer_calls": 213,
+      "queue_expired": 88,
+      "proposals": 30,
+      "proposals_with_no_at_source": 16,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 28,
+        "no_new_human_30s": 12,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 26,
+      "human_messages": 2189,
+      "exogenous_self_messages": 1185,
+      "fixture_observer_calls": 1361,
+      "queue_expired": 824,
+      "proposals": 163,
+      "proposals_with_no_at_source": 80,
+      "proposals_after_unobserved_boundary": 4,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 149,
+        "no_new_human_30s": 48,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 27,
+      "human_messages": 677,
+      "exogenous_self_messages": 410,
+      "fixture_observer_calls": 461,
+      "queue_expired": 216,
+      "proposals": 60,
+      "proposals_with_no_at_source": 26,
+      "proposals_after_unobserved_boundary": 1,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 57,
+        "no_new_human_30s": 23,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 28,
+      "human_messages": 340,
+      "exogenous_self_messages": 218,
+      "fixture_observer_calls": 236,
+      "queue_expired": 104,
+      "proposals": 20,
+      "proposals_with_no_at_source": 9,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 17,
+        "no_new_human_30s": 5,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 29,
+      "human_messages": 123,
+      "exogenous_self_messages": 74,
+      "fixture_observer_calls": 77,
+      "queue_expired": 45,
+      "proposals": 6,
+      "proposals_with_no_at_source": 3,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 5,
+        "no_new_human_30s": 3,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 1,
+      "synthetic_day": 30,
+      "human_messages": 341,
+      "exogenous_self_messages": 201,
+      "fixture_observer_calls": 238,
+      "queue_expired": 101,
+      "proposals": 30,
+      "proposals_with_no_at_source": 17,
+      "proposals_after_unobserved_boundary": 1,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 29,
+        "no_new_human_30s": 12,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 4,
+      "human_messages": 154,
+      "exogenous_self_messages": 40,
+      "fixture_observer_calls": 113,
+      "queue_expired": 39,
+      "proposals": 15,
+      "proposals_with_no_at_source": 12,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 15,
+        "no_new_human_30s": 6,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 6,
+      "human_messages": 48,
+      "exogenous_self_messages": 10,
+      "fixture_observer_calls": 42,
+      "queue_expired": 6,
+      "proposals": 8,
+      "proposals_with_no_at_source": 6,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 8,
+        "no_new_human_30s": 4,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 7,
+      "human_messages": 25,
+      "exogenous_self_messages": 11,
+      "fixture_observer_calls": 19,
+      "queue_expired": 6,
+      "proposals": 2,
+      "proposals_with_no_at_source": 2,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 2,
+        "no_new_human_30s": 1,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 8,
+      "human_messages": 10,
+      "exogenous_self_messages": 0,
+      "fixture_observer_calls": 6,
+      "queue_expired": 4,
+      "proposals": 0,
+      "proposals_with_no_at_source": 0,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 0,
+        "no_new_human_30s": 0,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 9,
+      "human_messages": 38,
+      "exogenous_self_messages": 5,
+      "fixture_observer_calls": 28,
+      "queue_expired": 10,
+      "proposals": 4,
+      "proposals_with_no_at_source": 4,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 4,
+        "no_new_human_30s": 3,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 10,
+      "human_messages": 57,
+      "exogenous_self_messages": 10,
+      "fixture_observer_calls": 52,
+      "queue_expired": 5,
+      "proposals": 7,
+      "proposals_with_no_at_source": 6,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 7,
+        "no_new_human_30s": 0,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 11,
+      "human_messages": 5,
+      "exogenous_self_messages": 4,
+      "fixture_observer_calls": 4,
+      "queue_expired": 1,
+      "proposals": 0,
+      "proposals_with_no_at_source": 0,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 0,
+        "no_new_human_30s": 0,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 12,
+      "human_messages": 18,
+      "exogenous_self_messages": 11,
+      "fixture_observer_calls": 8,
+      "queue_expired": 10,
+      "proposals": 0,
+      "proposals_with_no_at_source": 0,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 0,
+        "no_new_human_30s": 0,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 13,
+      "human_messages": 26,
+      "exogenous_self_messages": 1,
+      "fixture_observer_calls": 17,
+      "queue_expired": 9,
+      "proposals": 0,
+      "proposals_with_no_at_source": 0,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 0,
+        "no_new_human_30s": 0,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 14,
+      "human_messages": 8,
+      "exogenous_self_messages": 1,
+      "fixture_observer_calls": 6,
+      "queue_expired": 2,
+      "proposals": 0,
+      "proposals_with_no_at_source": 0,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 0,
+        "no_new_human_30s": 0,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 15,
+      "human_messages": 23,
+      "exogenous_self_messages": 4,
+      "fixture_observer_calls": 19,
+      "queue_expired": 4,
+      "proposals": 1,
+      "proposals_with_no_at_source": 1,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 1,
+        "no_new_human_30s": 1,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 16,
+      "human_messages": 186,
+      "exogenous_self_messages": 41,
+      "fixture_observer_calls": 127,
+      "queue_expired": 57,
+      "proposals": 13,
+      "proposals_with_no_at_source": 10,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 13,
+        "no_new_human_30s": 6,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 19,
+      "human_messages": 472,
+      "exogenous_self_messages": 122,
+      "fixture_observer_calls": 331,
+      "queue_expired": 132,
+      "proposals": 30,
+      "proposals_with_no_at_source": 22,
+      "proposals_after_unobserved_boundary": 1,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 30,
+        "no_new_human_30s": 12,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 23,
+      "human_messages": 47,
+      "exogenous_self_messages": 9,
+      "fixture_observer_calls": 46,
+      "queue_expired": 1,
+      "proposals": 3,
+      "proposals_with_no_at_source": 2,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 3,
+        "no_new_human_30s": 0,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 24,
+      "human_messages": 15,
+      "exogenous_self_messages": 0,
+      "fixture_observer_calls": 10,
+      "queue_expired": 4,
+      "proposals": 1,
+      "proposals_with_no_at_source": 1,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 1,
+        "no_new_human_30s": 1,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 25,
+      "human_messages": 20,
+      "exogenous_self_messages": 4,
+      "fixture_observer_calls": 16,
+      "queue_expired": 4,
+      "proposals": 0,
+      "proposals_with_no_at_source": 0,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 0,
+        "no_new_human_30s": 0,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 26,
+      "human_messages": 9,
+      "exogenous_self_messages": 4,
+      "fixture_observer_calls": 6,
+      "queue_expired": 3,
+      "proposals": 2,
+      "proposals_with_no_at_source": 2,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 1,
+        "no_new_human_30s": 1,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 27,
+      "human_messages": 44,
+      "exogenous_self_messages": 3,
+      "fixture_observer_calls": 36,
+      "queue_expired": 8,
+      "proposals": 4,
+      "proposals_with_no_at_source": 4,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 4,
+        "no_new_human_30s": 2,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 28,
+      "human_messages": 19,
+      "exogenous_self_messages": 2,
+      "fixture_observer_calls": 14,
+      "queue_expired": 4,
+      "proposals": 2,
+      "proposals_with_no_at_source": 2,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 2,
+        "no_new_human_30s": 1,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 29,
+      "human_messages": 108,
+      "exogenous_self_messages": 26,
+      "fixture_observer_calls": 87,
+      "queue_expired": 19,
+      "proposals": 10,
+      "proposals_with_no_at_source": 8,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 10,
+        "no_new_human_30s": 4,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    },
+    {
+      "rank": 2,
+      "synthetic_day": 30,
+      "human_messages": 132,
+      "exogenous_self_messages": 45,
+      "fixture_observer_calls": 90,
+      "queue_expired": 38,
+      "proposals": 12,
+      "proposals_with_no_at_source": 10,
+      "proposals_after_unobserved_boundary": 0,
+      "timer_proposal_bins": {
+        "no_new_event_2s": 12,
+        "no_new_human_30s": 8,
+        "no_new_human_90s": 0,
+        "no_new_human_600s": 0
+      }
+    }
+  ],
+  "provider_requests": 0,
+  "main_agent_requests": 0,
+  "qq_messages_sent": 0,
+  "limitations": [
+    "Controller state resets at every synthetic midnight; cross-day continuity is not measured.",
+    "Historical-shaped SELF messages are exogenous context, never replay output.",
+    "The fixture observer uses developer labels, not Jev predictions.",
+    "The sink records NO_REPLY; proposals are not host acceptance or actual speech."
+  ]
+}

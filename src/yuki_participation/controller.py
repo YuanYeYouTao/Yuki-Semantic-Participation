@@ -160,6 +160,10 @@ class State(Record):
     pending: str | None = None
     attentions: dict[str, float] = Field(default_factory=dict)
     last_accepted: float = -1e9
+    intrinsic_base_at: float | None = None
+    last_human_at: float | None = None
+    last_self_message_at: float | None = None
+    last_intrinsic_at: float = -1e9
     skipped_seconds: float = 0
     capacity_blocked: bool = False
     observer_checkpoint: dict[str, object] = Field(default_factory=dict)
@@ -181,7 +185,9 @@ class Controller:
 
     def __init__(self, scope: Scope, now: float, *, rng: random.Random | None = None) -> None:
         self.rng = rng or random.Random()
-        self.state = State(scope=scope, now=now, threshold=self.rng.expovariate(1))
+        self.state = State(
+            scope=scope, now=now, threshold=self.rng.expovariate(1), intrinsic_base_at=now
+        )
 
     def _set(self, **updates: object) -> None:
         self.state = self.state.model_copy(update=updates)
@@ -251,6 +257,10 @@ class Controller:
             return False
         self.state.events[event.ref.event_id] = event
         self.state.seen[event.ref.event_id] = SeenSource(revision=event.ref.revision, at=event.at)
+        if event.kind == "human":
+            self._set(last_human_at=max(self.state.last_human_at or 0, event.at))
+        elif event.kind == "self":
+            self._set(last_self_message_at=max(self.state.last_self_message_at or 0, event.at))
         self._prune()
         return True
 
@@ -399,16 +409,25 @@ class Controller:
             event = event.model_copy(
                 update={"thread": unit.thread, "target": unit.target, "unit_ambiguous": False}
             )
-        anchor = self.state.events.get(event.reply_to.event_id) if event.reply_to else None
+        anchor_ref = event.reply_to
+        if anchor_ref is None and observation.resolved_unit is not None:
+            interaction = observation.answers.get("interaction_mark")
+            if _dimension_known(interaction) and interaction.p("extend_yuki") >= 0.5:
+                anchor_ref = observation.resolved_unit.self_anchor
+        anchor = self.state.events.get(anchor_ref.event_id) if anchor_ref else None
         matching_anchor = (
-            event.reply_to
+            anchor_ref
             if (
                 anchor is not None
-                and anchor.ref == event.reply_to
+                and anchor.ref == anchor_ref
                 and anchor.kind == "self"
                 and anchor.thread == event.thread
                 and anchor.target in {event.target, "group"}
                 and anchor.at <= event.at
+                and (
+                    anchor_ref == event.reply_to
+                    or any(context.ref == anchor_ref for context in snap.context)
+                )
             )
             else None
         )
@@ -960,6 +979,8 @@ class Controller:
         self.state.effects[effect.effect_id] = RecordedEffect(
             proposal_id=f"host:{run_ref}", run_ref=run_ref, effect=effect
         )
+        if effect.kind == "message":
+            self._set(last_self_message_at=max(self.state.last_self_message_at or 0, effect.at))
         self._prune()
         return True
 
@@ -970,8 +991,33 @@ class Controller:
         value = {"join": 1, "stay": 0, "quiet": -1}[last.delta.engage]
         return value * math.exp(-(now - last.at) / 180)
 
+    def intrinsic_rate(self, now: float) -> float:
+        """An optional SELF impulse with no fabricated message or semantic observation."""
+        base = self.state.intrinsic_base_at
+        if base is None:
+            return 0.0
+        quiet = now - max(base, self.state.last_human_at or base)
+        since_attempt = now - self.state.last_intrinsic_at
+        recent_speech = self.state.last_self_message_at or -1e9
+        if (
+            quiet < 900
+            or since_attempt < 3600
+            or now - recent_speech < 1200
+            or any(
+                boundary.explicit_stop and boundary.group_wide and boundary.released_by is None
+                for boundary in self.state.boundaries.values()
+            )
+        ):
+            return 0.0
+        return (1 - math.exp(-(quiet - 900) / 1800)) / 21600
+
     def advance(
-        self, now: float, *, controller_epoch: int, host_available: bool
+        self,
+        now: float,
+        *,
+        controller_epoch: int,
+        host_available: bool,
+        intrinsic_allowed: bool = False,
     ) -> Proposal | None:
         if not math.isfinite(now) or now < self.state.now:
             raise ValueError("clock_must_be_finite_and_monotonic")
@@ -979,8 +1025,24 @@ class Controller:
             # Switching invalidates pending proposals, not feedback for accepted runs.
             self._set(epoch=controller_epoch, pending=None, hazard=0, now=now)
             return None
+        if self.state.intrinsic_base_at is None:
+            self._set(intrinsic_base_at=now)
         elapsed = now - self.state.now
         if elapsed > 5:
+            # A Host can rotate bounded scope sessions. Preserve the independent
+            # clock exposure while still skipping stale source-driven rates.
+            if (
+                intrinsic_allowed
+                and host_available
+                and not self.state.capacity_blocked
+                and not self.state.pending
+            ):
+                missed = elapsed - 5
+                start = self.state.now
+                rate_sum = sum(
+                    self.intrinsic_rate(start + missed * (part + 0.5) / 4) for part in range(4)
+                )
+                self._set(hazard=self.state.hazard + missed * rate_sum / 4)
             self._set(skipped_seconds=self.state.skipped_seconds + elapsed - 5, now=now - 5)
         start = self.state.now
         steps = max(1, math.ceil((now - start) / 0.25))
@@ -994,33 +1056,52 @@ class Controller:
         for i in range(steps):
             at = start + (i + 1) * delta
             if can_propose:
-                self._set(hazard=self.state.hazard + sum(self.rates(at).values()) * delta)
+                intrinsic = self.intrinsic_rate(at) if intrinsic_allowed else 0.0
+                rate = sum(self.rates(at).values()) + intrinsic
+                self._set(hazard=self.state.hazard + rate * delta)
         self._set(now=now)
         self._prune()
         if not can_propose or self.state.hazard < self.state.threshold:
             return None
         rates = self.rates(now)
+        if intrinsic_allowed:
+            rates["__intrinsic__"] = self.intrinsic_rate(now)
         if not sum(rates.values()):
             return None
         key = self.rng.choices(list(rates), weights=list(rates.values()))[0]
-        candidate = self.state.candidates[key]
-        members = self._eligible_groups(now)[key]
-        proposal = Proposal(
-            proposal_id=str(uuid4()),
-            scope=self.state.scope,
-            controller_epoch=controller_epoch,
-            kind=candidate.kind,
-            thread=candidate.event.thread,
-            target_hint=candidate.event.target,
-            sources=tuple(member.event.ref for member in members),
-            support=candidate.support,
-            supports=tuple(member.support for member in members),
-            source_fingerprints=tuple(
-                self.state.content_keys[member.event.ref.event_id] for member in members
-            ),
-            created_at=now,
-            expires_at=min(member.support.valid_until for member in members),
-        )
+        if key == "__intrinsic__":
+            proposal = Proposal(
+                proposal_id=str(uuid4()),
+                scope=self.state.scope,
+                controller_epoch=controller_epoch,
+                kind=CandidateKind.INTRINSIC,
+                thread=f"intrinsic:{self.state.scope.generation}",
+                target_hint="group",
+                sources=(),
+                support=None,
+                created_at=now,
+                expires_at=now + 60,
+            )
+            self._set(last_intrinsic_at=now)
+        else:
+            candidate = self.state.candidates[key]
+            members = self._eligible_groups(now)[key]
+            proposal = Proposal(
+                proposal_id=str(uuid4()),
+                scope=self.state.scope,
+                controller_epoch=controller_epoch,
+                kind=candidate.kind,
+                thread=candidate.event.thread,
+                target_hint=candidate.event.target,
+                sources=tuple(member.event.ref for member in members),
+                support=candidate.support,
+                supports=tuple(member.support for member in members),
+                source_fingerprints=tuple(
+                    self.state.content_keys[member.event.ref.event_id] for member in members
+                ),
+                created_at=now,
+                expires_at=min(member.support.valid_until for member in members),
+            )
         self.state.proposals[proposal.proposal_id] = proposal
         self._set(pending=proposal.proposal_id, hazard=0, threshold=self.rng.expovariate(1))
         return proposal
@@ -1068,6 +1149,8 @@ class Controller:
                 run_ref=feedback.run_ref,
                 effect=effect,
             )
+            if effect.kind == "message":
+                self._set(last_self_message_at=max(self.state.last_self_message_at or 0, effect.at))
         if feedback.outcome not in {"busy", "rejected"}:
             # A recovered terminal result also proves this proposal was accepted. The
             # acceptance notification can be missing; its sources must not reopen merely
@@ -1079,7 +1162,7 @@ class Controller:
                 )
             if old is None or old.outcome in {"busy", "rejected"}:
                 self._set(last_accepted=max(self.state.last_accepted, feedback.at))
-            if proposal.kind != CandidateKind.CONVERSATION:
+            if proposal.kind in {CandidateKind.RECALL, CandidateKind.CONTACT}:
                 unit = self._unit_key(proposal.thread, proposal.target_hint)
                 fingerprints = proposal.source_fingerprints
                 for fingerprint in fingerprints:
@@ -1217,5 +1300,26 @@ class Controller:
         controller = cls(state.scope, now)
         # No elapsed-time catch-up and no resubmission of an uncertain proposal.
         controller.state = state.model_copy(update={"now": now, "hazard": 0}, deep=True)
+        if controller.state.last_human_at is None:
+            last_human = max(
+                (event.at for event in state.events.values() if event.kind == "human"),
+                default=None,
+            )
+            if last_human is not None:
+                controller._set(last_human_at=last_human)
+        if controller.state.last_self_message_at is None:
+            last_speech = max(
+                (
+                    *(event.at for event in state.events.values() if event.kind == "self"),
+                    *(
+                        record.effect.at
+                        for record in state.effects.values()
+                        if record.effect.kind == "message"
+                    ),
+                ),
+                default=None,
+            )
+            if last_speech is not None:
+                controller._set(last_self_message_at=last_speech)
         controller._prune()
         return controller

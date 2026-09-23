@@ -113,15 +113,26 @@ class ObservationQueue:
                 key=lambda e: (e.at, e.ref.event_id),
             )
         )
-        selected = context[-6:]
-        # Preserve a referenced anchor instead of truncating the meaning of a correction/stop.
-        anchor = next((e for e in context if e.ref == pending.event.reply_to), None)
-        if anchor and anchor not in selected:
-            selected = (anchor, *selected[-5:])
+        selected = list(context[-6:])
+        # Preserve explicit and host-provided SELF anchors for semantic unit selection.
+        required = {
+            ref
+            for ref in (
+                pending.event.reply_to,
+                *(option.self_anchor for option in pending.event.unit_options),
+            )
+            if ref is not None
+        }
+        for anchor in (e for e in context if e.ref in required and e not in selected):
+            removable = next((e for e in selected if e.ref not in required), None)
+            if removable is not None:
+                selected.remove(removable)
+                selected.append(anchor)
+        selected.sort(key=lambda e: (e.at, e.ref.event_id))
         self.in_flight = Snapshot(
             scope=self.scope,
             focus=pending.event,
-            context=selected,
+            context=tuple(selected),
             sequence=self.sequence,
             issued_at=now,
             kind=pending.kind,

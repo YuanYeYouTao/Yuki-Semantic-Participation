@@ -31,6 +31,7 @@ class HostUnitOption(Record):
     thread: str = Field(min_length=1, max_length=128)
     target: str = Field(min_length=1, max_length=128)
     label: str = Field(default="", max_length=200)
+    self_anchor: SourceRef | None = None
 
 
 class ScopedEvent(Record):
@@ -58,6 +59,7 @@ class CandidateKind(StrEnum):
     CONVERSATION = "conversation"
     RECALL = "recall"
     CONTACT = "contact"
+    INTRINSIC = "intrinsic"
 
 
 class Choice(Record):
@@ -146,11 +148,20 @@ class Proposal(Record):
     thread: str
     target_hint: str
     sources: tuple[SourceRef, ...]
-    support: Support
+    support: Support | None
     created_at: Timestamp
     expires_at: Timestamp
     supports: tuple[Support, ...] = Field(default=(), max_length=32)
     source_fingerprints: tuple[str, ...] = Field(default=(), max_length=32)
+
+    @model_validator(mode="after")
+    def valid_cause(self) -> Proposal:
+        if self.kind is CandidateKind.INTRINSIC:
+            if self.sources or self.support is not None or self.supports:
+                raise ValueError("intrinsic_proposal_has_no_semantic_source")
+        elif not self.sources or self.support is None:
+            raise ValueError("semantic_proposal_requires_source_and_support")
+        return self
 
 
 class Effect(Record):
