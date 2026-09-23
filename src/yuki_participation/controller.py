@@ -245,7 +245,7 @@ class Controller:
         if old:
             self.observe_source_change(old.ref)
         content_key = self._content_key(event)
-        duplicate = any(
+        duplicate = event.kind == "seed" and any(
             key != event.ref.event_id and value == content_key
             for key, value in self.state.content_keys.items()
         )

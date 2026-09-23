@@ -26,20 +26,26 @@ def score_seed(c, key, at, *, kind=CandidateKind.CONTACT, info="new", text=None)
     return event
 
 
-def test_exact_content_repeat_different_id_does_not_add_stimulus_or_activity():
+def test_repeated_human_turn_is_distinct_but_repeated_seed_is_deduplicated():
     c = controller()
-    original = source("first", text="同一条内容")
+    original = source("first", text="Yuki，来看看")
     assert c.observe_committed_event(original)
-    c.apply_semantic_observation(observation(original))
-    before = c._activity(105)
-    assert not c.observe_committed_event(source("forwarded", at=105, text=original.text))
-    assert c._activity(105) == before
-    assert len(c.state.candidates) == 1
+    assert c.apply_semantic_observation(observation(original))
+    repeated = source("again", at=105, text=original.text)
+    assert c.observe_committed_event(repeated)
+    assert c.apply_semantic_observation(observation(repeated))
+    assert c.state.last_human_at == 105
+    assert repeated.ref.event_id in c.state.candidates
     assert c.observe_committed_event(
         source("different-person", at=105, author="B", text=original.text)
     )
     restored = Controller.restore(c.state, 106)
-    assert not restored.observe_committed_event(source("replay", at=106, text=original.text))
+    assert restored.observe_committed_event(source("later", at=106, text=original.text))
+    first_seed = source("seed-one", at=107, kind="seed", text="相同记忆内容")
+    assert restored.observe_committed_event(first_seed)
+    assert not restored.observe_committed_event(
+        source("seed-two", at=108, kind="seed", text=first_seed.text)
+    )
 
 
 def test_common_unit_sources_compete_once_and_are_consumed_together():
