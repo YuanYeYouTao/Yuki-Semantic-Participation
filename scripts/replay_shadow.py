@@ -12,7 +12,6 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
-import random
 import subprocess
 import sys
 from dataclasses import dataclass, field
@@ -80,7 +79,7 @@ def synthetic_answers(case: dict) -> dict[str, Choice]:
     }
 
 
-def replay(cases: list[dict], yuki_repo: Path, *, random_seed: int) -> dict:
+def replay(cases: list[dict], yuki_repo: Path) -> dict:
     sys.path.insert(0, str(yuki_repo / "src"))
     # This optional script is the dependency boundary; the installed core does not import Yuki.
     from qq_ai_bot.conversation.participation import (
@@ -123,7 +122,6 @@ def replay(cases: list[dict], yuki_repo: Path, *, random_seed: int) -> dict:
         controller = Controller(
             snapshot.scope,
             min(e.at for e in (*context, focus)),
-            rng=random.Random(random_seed + index),
         )
         for event in (*context, focus):
             controller.observe_committed_event(event)
@@ -199,12 +197,13 @@ def replay(cases: list[dict], yuki_repo: Path, *, random_seed: int) -> dict:
             "not a production FeatureBuilder replay.",
             "Every branch uses the same recording-only NO_REPLY sink, not the Main Agent.",
             "Virtual opportunity latency is not HTTP latency or real QQ response latency.",
-            "One seeded realization is not calibrated social quality or a superiority claim.",
+            "Deterministic controller output is not calibrated social quality "
+            "or a superiority claim.",
             "No seed/contact, provider fault, real conversation, persistent host switch "
             "or QQ delivery acceptance here.",
         ],
         "parameters": {
-            "random_seed": random_seed,
+            "controller_policy": "deterministic_net_opportunity",
             "first_scoring_at": 130,
             "virtual_horizon_until": 190,
             "semantic_input": "fixture labels",
@@ -241,9 +240,8 @@ def main() -> None:
     parser.add_argument("--yuki-repo", type=Path, required=True)
     parser.add_argument("--fixture", type=Path, default=ROOT / "fixtures/semantic-smoke.json")
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--seed", type=int, default=20260922)
     args = parser.parse_args()
-    report = replay(load_cases(args.fixture), args.yuki_repo.resolve(), random_seed=args.seed)
+    report = replay(load_cases(args.fixture), args.yuki_repo.resolve())
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

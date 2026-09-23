@@ -16,19 +16,20 @@
 ## 原则
 
 - 新语义观测、未知、缺失、短期预测、明确结束分别表示。
-- 稀疏调用不等于无语义运行；没有有效支持时不提出新机会。
+- 稀疏调用不等于无语义运行；有来源机会要求有效语义支持，无来源 SELF 机会明确标记。
 - 确认自身输出不能独自构成互惠；时间衰减回到旁观，不制造结束证据。
 - 来源修订、generation 和对象边界决定支持有效性；重复观测不重复计数。
 - 没有日配额；固定工具合同及原 Agent 执行机制不由此系统更改。
 - 关闭 semantic 或持续故障时由宿主唯一 selector 恢复 legacy；总开关关闭时仍为 off。
 - 合法 unknown 不等于 Provider 故障；回退恢复须有真实成功观测，队列过期不代表恢复。
-- 语义观测确认邀请或适合接话后立即提出机会，不再等待随机强度积分。直呼名字只提高观察顺序，不是 @ 或直接触发。
+- 语义观测确认直接邀请后立即提出机会；自主加入、回忆、联系与无来源参与由[连续机会值](docs/autonomous-evolution.md)决定。直呼名字只提高观察顺序，不是 @ 或直接触发。
 
 ## 开发
 
 ```sh
 python -m pip install -e '.[dev]'
 pytest -q
+python -m scripts.replay_autonomous_evolution --fixture fixtures/group-chat-workload-v2-full.json.gz --output docs/evidence/autonomous-evolution-v1-replay.json
 ```
 
 Jev 使用固定 `jev-1.13.0`、版本化 `v6-zh-4` rubric 与原生 `POST /v1/systemone`，密钥由调用者注入。

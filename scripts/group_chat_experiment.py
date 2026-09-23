@@ -357,13 +357,19 @@ class FixtureObserver:
         )
 
 
-async def replay_scene(scene: dict[str, object], seed: int) -> dict[str, object]:
+async def replay_scene(
+    scene: dict[str, object],
+    seed: int,
+    *,
+    intrinsic_allowed: bool = False,
+    horizon: float | None = None,
+) -> dict[str, object]:
     records = scene["events"]
     assert isinstance(records, list) and records
     labels = {str(row["id"]): row for row in records}
     scope = Scope(conversation_id=f"synthetic:{scene['id']}", generation=1)
     start = float(records[0]["at"])
-    controller = Controller(scope, start - 1, rng=random.Random(seed))
+    controller = Controller(scope, start - 1)
     observer = FixtureObserver(labels)
     session = ObservationSession(controller, observer)
     proposals: list[dict[str, object]] = []
@@ -371,13 +377,19 @@ async def replay_scene(scene: dict[str, object], seed: int) -> dict[str, object]
 
     async def tick(at: float) -> None:
         await session.evaluate_due(at, active=bool(controller.state.candidates))
-        proposal = controller.advance(at, controller_epoch=0, host_available=True)
+        proposal = controller.advance(
+            at,
+            controller_epoch=0,
+            host_available=True,
+            intrinsic_allowed=intrinsic_allowed,
+        )
         if proposal is None:
             return
         sources = [source.event_id for source in proposal.sources]
         proposals.append(
             {
                 "at": round(at, 2),
+                "kind": proposal.kind.value,
                 "thread": proposal.thread,
                 "target": proposal.target_hint,
                 "sources": sources,
@@ -385,8 +397,10 @@ async def replay_scene(scene: dict[str, object], seed: int) -> dict[str, object]
                     source for source in sources if not labels[source]["mentions_bot"]
                 ],
                 "gold_acts": [labels[source]["act"] for source in sources],
-                "age_seconds": round(
-                    at - max(float(labels[source]["at"]) for source in sources), 2
+                "age_seconds": (
+                    round(at - max(float(labels[source]["at"]) for source in sources), 2)
+                    if sources
+                    else None
                 ),
             }
         )
@@ -415,7 +429,9 @@ async def replay_scene(scene: dict[str, object], seed: int) -> dict[str, object]
                 for candidate in controller.state.candidates.values()
             )
             if not live:
-                break
+                if not intrinsic_allowed:
+                    break
+                probe = min(now + 60, target - 0.001)
             now = probe
             await tick(now)
         now = target
@@ -453,11 +469,14 @@ async def replay_scene(scene: dict[str, object], seed: int) -> dict[str, object]
         else:
             session.observe(item)
         await tick(at)
-    await until(float(records[-1]["at"]) + 100)
+    await until(horizon if horizon is not None else float(records[-1]["at"]) + 100)
     await tick(now)
     human = [row for row in records if row["kind"] == "human"]
     observed_at = {str(call["focus"]): float(call["at"]) for call in observer.calls}
     for proposal in proposals:
+        if not proposal["sources"]:
+            proposal["unobserved_boundary_before_proposal"] = []
+            continue
         latest_source_at = max(float(labels[source]["at"]) for source in proposal["sources"])
         proposal["unobserved_boundary_before_proposal"] = [
             row["id"]

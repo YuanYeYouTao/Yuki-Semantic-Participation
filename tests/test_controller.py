@@ -65,7 +65,7 @@ def observation(source, *, sequence=1, act="invite_yuki", info="refine", floor="
 
 
 def controller():
-    return Controller(SCOPE, 100, rng=random.Random(13))
+    return Controller(SCOPE, 100)
 
 
 def test_time_and_self_output_never_manufacture_closure_or_reciprocity():
@@ -121,7 +121,7 @@ def test_unknown_does_not_create_high_default_floor():
     c.observe_committed_event(e)
     c.apply_semantic_observation(observation(e, floor="unknown"))
     assert not c.state.candidates
-    assert not c.rates(110)
+    assert not c.opportunity_scores(110)
 
 
 def test_addressed_invitation_can_use_host_new_unit_without_topic_selection():
@@ -149,10 +149,14 @@ def test_addressed_invitation_can_use_host_new_unit_without_topic_selection():
 
     # Old durable snapshots remain loadable without reviving the removed gate.
     saved = c.state.model_dump(mode="json")
-    saved.update(threshold=0.6, hazard=0.3)
+    saved.pop("self_reference_at")
+    saved.pop("last_intrinsic_accepted_at")
+    saved.update(threshold=0.6, hazard=0.3, intrinsic_base_at=80, last_intrinsic_at=99)
     restored = State.model_validate(saved)
     assert "threshold" not in restored.model_fields_set
     assert "hazard" not in restored.model_fields_set
+    assert restored.self_reference_at == 80
+    assert restored.last_intrinsic_accepted_at is None
 
 
 def test_name_priority_cannot_turn_non_invitation_into_a_proposal():
@@ -188,7 +192,7 @@ def test_closed_boundary_survives_window_and_silence():
     fresh = event("new", at=1000)
     c.observe_committed_event(fresh)
     c.apply_semantic_observation(observation(fresh, act="open_group"))
-    assert not c.rates(1001)
+    assert not c.opportunity_scores(1001)
     assert c.state.boundaries
 
 
@@ -198,7 +202,7 @@ def test_support_expires_without_self_renewal():
     c.observe_committed_event(e)
     c.apply_semantic_observation(observation(e))
     c.advance(195, controller_epoch=0, host_available=True)
-    assert not c.rates(195)
+    assert not c.opportunity_scores(195)
 
 
 def test_proposal_consumption_survives_feedback_replay_and_restart(tmp_path):
@@ -218,7 +222,7 @@ def test_proposal_consumption_survives_feedback_replay_and_restart(tmp_path):
     )
     assert c.observe_run_feedback(feedback)
     assert not c.observe_run_feedback(feedback)
-    assert not c.rates(106)
+    assert not c.opportunity_scores(106)
     store = SnapshotStore(tmp_path / "controller.sqlite3")
     revision = store.save(c.state, expected_revision=0)
     with pytest.raises(SnapshotConflict):
