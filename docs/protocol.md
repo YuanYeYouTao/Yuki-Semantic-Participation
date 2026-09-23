@@ -1,6 +1,6 @@
 # 宿主与控制器协议
 
-2026-09-22。以下协议已由独立库和 Yuki 开发工作树实现并做定向验证，尚未完成真实 QQ 上线验收。
+以下协议已由独立库和 Yuki Host 实现并做定向验证；真实 QQ 社交效果仍须单独验收。
 Yuki 接线与权限的现行说明见其 `docs/architecture/semantic-participation.md`。
 
 ## 身份、观测与讨论单元
@@ -40,7 +40,7 @@ Host canonical 入库、来源版本与授权检查
   → session.observe(ScopedEvent)
   → await session.evaluate_due(now, active=...)
   → Host 唯一 selector 更新 off / legacy / semantic 及 epoch
-  → controller.advance(now, controller_epoch=..., host_available=...)
+  → controller.advance(now, controller_epoch=..., host_available=..., intrinsic_allowed=...)
   → 保存 State（含 observer_checkpoint）
   → Host submit_proposal；同 proposal_id 返回同 run 或明确拒绝
   → 原有 WorkScheduler / Main Agent / 工具与发送链
