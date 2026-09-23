@@ -1,0 +1,77 @@
+{
+  "kind": "continuous_autonomous_evolution_synthetic_replay",
+  "provenance": {
+    "fixture_sha256": "f2012e53a60fc56b53601f2b4b1e20853fca5f5ae881e25a4d217a6ca36a3230",
+    "rubric_revision": "v6-zh-4",
+    "source_sha256": {
+      "src/yuki_participation/controller.py": "50a0ea00bc10594e87bb3b8f744b6ff5ccb2d3eb6fb5cebe8fd1b2933a25df90",
+      "src/yuki_participation/dynamics.py": "c76ad996528e98f3fd3c09c15514f091000f51426efd3bf2206df15a1163addb",
+      "src/yuki_participation/scheduling.py": "fea70924db07f0589968ed95e7626e8603d153c8d1276f799977d2486271a54d",
+      "src/yuki_participation/session.py": "0c5923ecdb3b4356e1c38ecac60b54f91150a45ffcf64f39c957406666bd673e",
+      "scripts/group_chat_experiment.py": "4c93ee7c4105053b1d25901342e7c2907459bf91873d310f73efdd9e13a0617b"
+    }
+  },
+  "replay_script_sha256": "f07639ed33d891bb6d44bf8030ecafb26f49f4ef086f66a2867c028cd4c39ace",
+  "duration_days": 30,
+  "runtime_seconds": 122.85,
+  "scenes": [
+    {
+      "scene": "full_30d_rank_1",
+      "human_messages": 14488,
+      "observer_calls": 4810,
+      "queue_expired": 34,
+      "quiet_windows_over_6h": 18,
+      "max_quiet_seconds": 122412.74,
+      "proposals": 2132,
+      "proposals_by_kind": {
+        "conversation": 2076,
+        "intrinsic": 56
+      },
+      "proposals_by_last_human_gap": {
+        "10m_to_1h": 54,
+        "90s_to_10m": 1,
+        "under_90s": 2077
+      },
+      "max_proposal_idle_seconds": 1872.73,
+      "unobserved_boundary_proposals": 3
+    },
+    {
+      "scene": "full_30d_rank_2",
+      "human_messages": 1464,
+      "observer_calls": 1457,
+      "queue_expired": 7,
+      "quiet_windows_over_6h": 23,
+      "max_quiet_seconds": 269994.12,
+      "proposals": 547,
+      "proposals_by_kind": {
+        "conversation": 485,
+        "intrinsic": 62
+      },
+      "proposals_by_last_human_gap": {
+        "10m_to_1h": 8,
+        "90s_to_10m": 6,
+        "under_90s": 533
+      },
+      "max_proposal_idle_seconds": 1928.0,
+      "unobserved_boundary_proposals": 2
+    }
+  ],
+  "summary": {
+    "human_messages": 15952,
+    "observer_calls": 6267,
+    "proposals": 2679,
+    "intrinsic_proposals": 118,
+    "quiet_windows_over_6h": 41,
+    "over_6h_proposals": 0
+  },
+  "provider_requests": 0,
+  "main_agent_requests": 0,
+  "qq_messages_sent": 0,
+  "limitations": [
+    "All content and semantic labels are synthetic, calibrated only to server aggregates.",
+    "One continuous controller per 30-day scene; no daily state reset.",
+    "A recording NO_REPLY sink consumes proposals without actual Yuki speech.",
+    "Idle periods are checked every 60 virtual seconds, active sources every 2 seconds.",
+    "Host admission, provider behavior, and social acceptability are not measured."
+  ]
+}

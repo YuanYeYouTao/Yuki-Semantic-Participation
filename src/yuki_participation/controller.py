@@ -5,7 +5,6 @@ from __future__ import annotations
 import hashlib
 import json
 import math
-import random
 from typing import Literal, TypeGuard
 from uuid import uuid4
 
@@ -160,10 +159,10 @@ class State(Record):
     pending: str | None = None
     attentions: dict[str, float] = Field(default_factory=dict)
     last_accepted: float = -1e9
-    intrinsic_base_at: float | None = None
+    self_reference_at: float | None = None
     last_human_at: float | None = None
     last_self_message_at: float | None = None
-    last_intrinsic_at: float = -1e9
+    last_intrinsic_accepted_at: float | None = None
     skipped_seconds: float = 0
     capacity_blocked: bool = False
     observer_checkpoint: dict[str, object] = Field(default_factory=dict)
@@ -175,26 +174,29 @@ class State(Record):
     baseline_evictions: int = Field(default=0, ge=0)
     baseline_invalidations: int = Field(default=0, ge=0)
     trace_baselines: dict[str, TraceBaseline] = Field(default_factory=dict)
+    familiarities: dict[str, TraceBaseline] = Field(default_factory=dict)
     content_keys: dict[str, str] = Field(default_factory=dict)
     seed_claims: dict[str, float] = Field(default_factory=dict)
     seed_attempts: dict[str, SeedAttempt] = Field(default_factory=dict)
 
     @model_validator(mode="before")
     @classmethod
-    def discard_legacy_random_gate(cls, value: object) -> object:
-        # Existing durable snapshots contain these two obsolete fields.
-        if isinstance(value, dict) and ("threshold" in value or "hazard" in value):
-            return {key: item for key, item in value.items() if key not in {"threshold", "hazard"}}
-        return value
+    def discard_legacy_gates(cls, value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        # Old proposal-time stamps are not evidence of an accepted SELF run.
+        obsolete = {"threshold", "hazard", "intrinsic_base_at", "last_intrinsic_at"}
+        migrated = {key: item for key, item in value.items() if key not in obsolete}
+        if "self_reference_at" not in migrated:
+            migrated["self_reference_at"] = value.get("intrinsic_base_at", value.get("now"))
+        return migrated
 
 
 class Controller:
     """Semantic opportunities with a single Host-owned admission boundary."""
 
-    def __init__(self, scope: Scope, now: float, *, rng: random.Random | None = None) -> None:
-        # Keep the optional argument for callers restoring older experiments;
-        # proposal timing is no longer a random draw.
-        self.state = State(scope=scope, now=now, intrinsic_base_at=now)
+    def __init__(self, scope: Scope, now: float) -> None:
+        self.state = State(scope=scope, now=now, self_reference_at=now)
 
     def _set(self, **updates: object) -> None:
         self.state = self.state.model_copy(update=updates)
@@ -291,6 +293,14 @@ class Controller:
                 },
                 baseline_invalidations=self.state.baseline_invalidations + 1,
             )
+        if old_seen is None or old_seen.at <= self.state.replay_after:
+            # Retired human activity cannot be subtracted exactly. Forget its
+            # social-context contribution rather than retaining a ghost motive.
+            baselines = dict(self.state.trace_baselines)
+            baselines["social_context"] = TraceBaseline(
+                at=max(0.0, self.state.replay_after), value=0.0
+            )
+            self._set(trace_baselines=baselines)
         self.state.seen[key] = SeenSource(
             revision=max(invalid.revision, old_seen.revision if old_seen else 0),
             at=old_seen.at if old_seen else self.state.now,
@@ -610,6 +620,29 @@ class Controller:
     def _unit_key(thread: str, target: str) -> str:
         return json.dumps((thread, target), ensure_ascii=False, separators=(",", ":"))
 
+    @staticmethod
+    def _familiarity_key(kind: CandidateKind, thread: str, target: str) -> str:
+        return json.dumps((kind.value, thread, target), ensure_ascii=False, separators=(",", ":"))
+
+    def _familiarity(self, kind: CandidateKind, thread: str, target: str, now: float) -> float:
+        baseline = self.state.familiarities.get(self._familiarity_key(kind, thread, target))
+        if baseline is None:
+            return 0.0
+        tau = 600 if kind == CandidateKind.CONVERSATION else 21600
+        return baseline.value * math.exp(-max(0.0, now - baseline.at) / tau)
+
+    def _consider(self, proposal: Proposal, now: float) -> None:
+        key = self._familiarity_key(proposal.kind, proposal.thread, proposal.target_hint)
+        previous = self.state.familiarities.get(key)
+        now = max(now, previous.at) if previous else now
+        old = self._familiarity(proposal.kind, proposal.thread, proposal.target_hint, now)
+        familiarities = dict(self.state.familiarities)
+        familiarities[key] = TraceBaseline(at=now, value=old + 0.45 * (1 - old))
+        if len(familiarities) > 64:
+            oldest = min(familiarities, key=lambda item: (familiarities[item].at, item))
+            familiarities.pop(oldest)
+        self._set(familiarities=familiarities)
+
     def _belief_actions(self, thread: str, target: str) -> list[BeliefAction]:
         actions: list[BeliefAction] = []
         for obs in self.state.observations.values():
@@ -713,6 +746,8 @@ class Controller:
             "message": TraceBaseline(at=boundary, value=self._trace("message", boundary, 150)),
             "compute": TraceBaseline(at=boundary, value=self._trace("compute", boundary, 180)),
             "activity": TraceBaseline(at=boundary, value=self._activity(boundary)),
+            "social_context": TraceBaseline(at=boundary, value=self._social_context(boundary)),
+            "no_reply": TraceBaseline(at=boundary, value=self._no_reply(boundary)),
             "ratio_human": TraceBaseline(at=boundary, value=self._ratio_count("human", boundary)),
             "ratio_message": TraceBaseline(
                 at=boundary, value=self._ratio_count("message", boundary)
@@ -893,12 +928,36 @@ class Controller:
             for items in groups.values()
         }
 
-    def rates(self, now: float) -> dict[str, float]:
-        raw = {}
+    def opportunity_scores(self, now: float) -> dict[str, float]:
+        """Net value of a finite SELF turn; zero is the no-action alternative."""
+        raw: dict[str, float] = {}
+        speech = self._trace("message", now, 150)
+        compute = self._trace("compute", now, 180)
+        activity = self._activity(now)
+        own = self._ratio_count("message", now)
+        human = self._ratio_count("human", now)
+        context = self._social_context(now)
+        cost = dynamics.shared_cost(
+            speech=speech,
+            compute=compute,
+            activity=activity,
+            own_count=own,
+            human_count=human,
+        )
         for key, members in self._eligible_groups(now).items():
             candidate = self.state.candidates[key]
-            b = self.belief(candidate.event.thread, candidate.event.target, now)
             tau = {"conversation": 90, "recall": 3600, "contact": 1800}[candidate.kind.value]
+            for member in members:
+                self.state.attentions[member.event.ref.event_id] = dynamics.source_attention(
+                    member.value.value,
+                    now - member.event.at,
+                    now - max(member.support.issued_at, member.event.at),
+                    tau,
+                )
+            if any(self._addressed(member) for member in members):
+                raw[key] = max(member.value.value * member.floor.value for member in members)
+                continue
+            b = self.belief(candidate.event.thread, candidate.event.target, now)
             x = dynamics.aggregate_attention(
                 [
                     (member.value.value, member.event.at, member.support.issued_at)
@@ -907,9 +966,6 @@ class Controller:
                 now,
                 tau,
             )
-            speech = self._trace("message", now, 150)
-            compute = self._trace("compute", now, 180)
-            activity = self._activity(now)
             last_human_fragment = max(
                 (
                     event.at
@@ -924,28 +980,46 @@ class Controller:
                 ),
                 default=candidate.event.at,
             )
-            for member in members:
-                self.state.attentions[member.event.ref.event_id] = dynamics.source_attention(
-                    member.value.value,
-                    now - member.event.at,
-                    now - max(member.support.issued_at, member.event.at),
-                    tau,
-                )
-            raw[key] = dynamics.rate(
+            human_sources = [
+                (member.value.value, member.event.at, member.support.issued_at)
+                for member in members
+                if member.event.kind == "human"
+            ]
+            raw[key] = dynamics.source_opportunity(
                 b,
-                x,
-                min(member.support.strength(now) for member in members),
-                candidate.floor.value,
-                now - last_human_fragment,
-                kind=candidate.kind.value,
-                speech=speech,
-                compute=compute,
-                activity=activity,
-                willingness=self._willingness(now),
-                speech_ratio=self.speech_ratio(now),
+                attention=x,
+                familiarity=self._familiarity(
+                    candidate.kind, candidate.event.thread, candidate.event.target, now
+                ),
+                support=min(member.support.strength(now) for member in members),
+                floor=candidate.floor.value,
+                gap=now - last_human_fragment,
+                context=dynamics.social_context(
+                    context, dynamics.aggregate_attention(human_sources, now, tau)
+                ),
+                tendency=self._willingness(now),
+                cost=cost,
+                independent=candidate.kind != CandidateKind.CONVERSATION,
             )
-        denominator = 1 + sum(r for r, _ in raw.values())
-        return {key: r * factor / denominator for key, (r, factor) in raw.items()}
+        return raw
+
+    def _addressed(self, candidate: Candidate) -> bool:
+        observation = self.state.observations.get(candidate.support.basis.event_id)
+        if (
+            candidate.kind != CandidateKind.CONVERSATION
+            or candidate.support.kind != "observed"
+            or candidate.event.ref != candidate.support.basis
+            or observation is None
+        ):
+            return False
+        act = observation.answers.get("interaction_mark")
+        floor = observation.answers.get("floor_state")
+        return bool(
+            _dimension_known(act)
+            and _dimension_known(floor)
+            and act.choice in {"invite_yuki", "extend_yuki"}
+            and floor.choice == "yuki"
+        )
 
     def _ratio_count(self, kind: str, now: float) -> float:
         key = "ratio_" + kind
@@ -981,6 +1055,23 @@ class Controller:
             e.at for e in self.state.events.values() if e.kind == "human" and e.at <= now
         )
         return self._leaky_trace("activity", events, now, 60, 0.1)
+
+    def _social_context(self, now: float) -> float:
+        events = sorted(
+            e.at for e in self.state.events.values() if e.kind == "human" and e.at <= now
+        )
+        return self._leaky_trace("social_context", events, now, 3600, 0.1)
+
+    def _no_reply(self, now: float) -> float:
+        events = sorted(
+            report.at
+            for report in self.state.feedback.values()
+            if report.outcome == "no_reply"
+            and report.at <= now
+            and self.state.proposals.get(report.proposal_id) is not None
+            and self.state.proposals[report.proposal_id].kind == CandidateKind.INTRINSIC
+        )
+        return self._leaky_trace("no_reply", events, now, 1800, 0.45)
 
     def _leaky_trace(
         self,
@@ -1041,28 +1132,28 @@ class Controller:
         last = self.state.engagement_report
         if last is None or last.at > now or last.delta.engage is None:
             return 0
-        value = {"join": 1, "stay": 0, "quiet": -1}[last.delta.engage]
-        return value * math.exp(-(now - last.at) / 180)
+        value = {"join": 0.7, "stay": 0, "quiet": -0.7}[last.delta.engage]
+        return value * math.exp(-(now - last.at) / 1800)
 
-    def intrinsic_eligible(self, now: float) -> bool:
-        """An optional SELF opportunity with no fabricated semantic observation."""
-        base = self.state.intrinsic_base_at
-        if base is None:
-            return False
-        quiet = now - max(base, self.state.last_human_at or base)
-        since_attempt = now - self.state.last_intrinsic_at
-        recent_speech = self.state.last_self_message_at or -1e9
-        if (
-            quiet < 900
-            or since_attempt < 3600
-            or now - recent_speech < 1200
-            or any(
-                boundary.explicit_stop and boundary.group_wide and boundary.released_by is None
-                for boundary in self.state.boundaries.values()
-            )
-        ):
-            return False
-        return True
+    def intrinsic_opportunity(self, now: float) -> float:
+        reference = max(
+            self.state.self_reference_at if self.state.self_reference_at is not None else now,
+            self.state.last_intrinsic_accepted_at
+            if self.state.last_intrinsic_accepted_at is not None
+            else 0,
+            self.state.last_self_message_at if self.state.last_self_message_at is not None else 0,
+        )
+        return dynamics.intrinsic_opportunity(
+            elapsed=now - reference,
+            context=self._social_context(now),
+            tendency=self._willingness(now),
+            activity=self._activity(now),
+            speech=self._trace("message", now, 150),
+            compute=self._trace("compute", now, 180),
+            own_count=self._ratio_count("message", now),
+            human_count=self._ratio_count("human", now),
+            no_reply=self._no_reply(now),
+        )
 
     def advance(
         self,
@@ -1078,8 +1169,8 @@ class Controller:
             # Switching invalidates pending proposals, not feedback for accepted runs.
             self._set(epoch=controller_epoch, pending=None, now=now)
             return None
-        if self.state.intrinsic_base_at is None:
-            self._set(intrinsic_base_at=now)
+        if self.state.self_reference_at is None:
+            self._set(self_reference_at=now)
         elapsed = now - self.state.now
         if elapsed > 5:
             self._set(skipped_seconds=self.state.skipped_seconds + elapsed - 5)
@@ -1089,19 +1180,24 @@ class Controller:
         if not can_propose:
             return None
         groups = self._eligible_groups(now)
-        if groups:
-            key = max(
-                groups,
-                key=lambda candidate_key: (
-                    self.state.candidates[candidate_key].value.value
-                    * self.state.candidates[candidate_key].floor.value,
-                    self.state.candidates[candidate_key].event.at,
-                ),
-            )
-        elif intrinsic_allowed and self.intrinsic_eligible(now):
-            key = "__intrinsic__"
+        scores = self.opportunity_scores(now)
+        addressed = [
+            key for key, members in groups.items()
+            if any(self._addressed(member) for member in members)
+        ]
+        if addressed:
+            key = max(addressed, key=lambda item: (scores[item], item))
         else:
-            return None
+            if intrinsic_allowed and not any(
+                boundary.explicit_stop and boundary.group_wide and boundary.released_by is None
+                for boundary in self.state.boundaries.values()
+            ):
+                scores["__intrinsic__"] = self.intrinsic_opportunity(now)
+            if not scores:
+                return None
+            key = max(scores, key=lambda item: (scores[item], item))
+            if scores[key] <= 0:
+                return None
         if key == "__intrinsic__":
             proposal = Proposal(
                 proposal_id=str(uuid4()),
@@ -1115,7 +1211,6 @@ class Controller:
                 created_at=now,
                 expires_at=now + 60,
             )
-            self._set(last_intrinsic_at=now)
         else:
             candidate = self.state.candidates[key]
             members = groups[key]
@@ -1195,6 +1290,10 @@ class Controller:
                 )
             if old is None or old.outcome in {"busy", "rejected"}:
                 self._set(last_accepted=max(self.state.last_accepted, feedback.at))
+                if proposal.kind == CandidateKind.INTRINSIC:
+                    self._set(last_intrinsic_accepted_at=proposal.created_at)
+                else:
+                    self._consider(proposal, feedback.at)
             if proposal.kind in {CandidateKind.RECALL, CandidateKind.CONTACT}:
                 unit = self._unit_key(proposal.thread, proposal.target_hint)
                 fingerprints = proposal.source_fingerprints

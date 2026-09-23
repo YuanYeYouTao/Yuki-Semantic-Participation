@@ -1,7 +1,6 @@
 """Reproductions from the independent V6 review; all sources are synthetic."""
 
 import math
-import random
 
 import pytest
 
@@ -67,7 +66,7 @@ def observation(event, *, sequence=1, act="invite_yuki", info="refine", context=
 
 
 def controller():
-    return Controller(SCOPE, 100, rng=random.Random(13))
+    return Controller(SCOPE, 100)
 
 
 def propose(c, event, *, at=105, sequence=1, epoch=0):
@@ -99,7 +98,7 @@ def test_revoked_context_removes_derived_observation_candidate_and_boundary(act)
     assert c.observe_committed_event(event)
     assert c.apply_semantic_observation(observation(event, act=act, context=(anchor,)))
     if act == "invite_yuki":
-        assert c.rates(105)[event.ref.event_id] > 0
+        assert c.opportunity_scores(105)[event.ref.event_id] > 0
     else:
         assert c.state.boundaries
 
@@ -108,7 +107,7 @@ def test_revoked_context_removes_derived_observation_candidate_and_boundary(act)
     assert event.ref.event_id not in c.state.observations
     assert event.ref.event_id not in c.state.candidates
     assert event.ref.event_id not in c.state.boundaries
-    assert not c.rates(105)
+    assert not c.opportunity_scores(105)
     assert c.belief("topic", "A", 105) == dynamics.IDLE
 
 
@@ -126,7 +125,7 @@ def test_late_old_revision_retraction_cannot_delete_new_source_or_its_interpreta
     assert c.state.events[current.ref.event_id] == current
     assert c.state.observations[current.ref.event_id] == stored
     assert stored.observation_id == score.observation_id
-    assert c.rates(105)[current.ref.event_id] > 0
+    assert c.opportunity_scores(105)[current.ref.event_id] > 0
 
 
 @pytest.mark.parametrize("retracted", ["focus", "anchor"])
@@ -151,14 +150,14 @@ def test_reinterpretation_recomputes_attention_without_reusing_old_stimulus():
     event = source()
     c.observe_committed_event(event)
     c.apply_semantic_observation(observation(event))
-    assert c.rates(105)[event.ref.event_id] > 0
+    assert c.opportunity_scores(105)[event.ref.event_id] > 0
     assert c.state.attentions[event.ref.event_id] > 0.5
 
     assert c.apply_semantic_observation(
         observation(event, sequence=2, act="off_focus", info="repeat")
     )
 
-    assert sum(c.rates(105).values()) == 0
+    assert sum(c.opportunity_scores(105).values()) == 0
     assert event.ref.event_id not in c.state.attentions
     assert c.belief("topic", "A", 105) == dynamics.IDLE
 
@@ -177,19 +176,19 @@ def established_prediction():
 
 def test_reinterpreted_basis_invalidates_derived_prediction():
     c, basis, continuation = established_prediction()
-    assert c.rates(110)[continuation.ref.event_id] > 0
+    assert c.opportunity_scores(110)[continuation.ref.event_id] > 0
 
     assert c.apply_semantic_observation(
         observation(basis, sequence=2, act="off_focus", info="repeat")
     )
 
     assert continuation.ref.event_id not in c.state.candidates
-    assert not c.rates(110)
+    assert not c.opportunity_scores(110)
 
 
 def test_prediction_attention_does_not_accumulate_before_new_source_exists():
     c, _, continuation = established_prediction()
-    c.rates(continuation.at)
+    c.opportunity_scores(continuation.at)
     assert c.state.attentions[continuation.ref.event_id] == 0
     assert c.state.candidates[continuation.ref.event_id].support.valid_until == 145
 
@@ -289,7 +288,7 @@ def test_late_older_proposal_receipt_cannot_lower_consumption_or_acceptance_time
     assert c.observe_run_feedback(feedback(old, run="old", at=105))
     assert c.state.consumed["focus"] == 2
     assert c.state.last_accepted == 111
-    assert not c.rates(112)
+    assert not c.opportunity_scores(112)
 
 
 @pytest.mark.parametrize("outcome", ["completed", "no_reply", "interrupted"])
@@ -627,15 +626,15 @@ def test_effect_trace_survives_receipt_compaction_and_restart(kind, tau):
     assert restored._trace(kind, 1200, tau) == pytest.approx(0.25 * math.exp(-1095 / tau))
 
 
-def test_opening_gap_uses_latest_trusted_human_fragment_in_the_same_unit():
+def test_direct_invitation_is_not_delayed_by_an_unscored_same_unit_fragment():
     c = controller()
     invitation = source()
     assert c.observe_committed_event(invitation)
     assert c.apply_semantic_observation(observation(invitation))
-    assert c.rates(105)[invitation.ref.event_id] > 0
+    assert c.opportunity_scores(105)[invitation.ref.event_id] > 0
     for kind in ("self", "seed"):
         assert c.observe_committed_event(source(kind, at=105, kind=kind))
-        assert c.rates(105)[invitation.ref.event_id] > 0
+        assert c.opportunity_scores(105)[invitation.ref.event_id] > 0
     assert c.observe_committed_event(source("other-thread", at=105, thread="different"))
     assert c.observe_committed_event(source("other-target", at=105, target="B"))
     assert not c.observe_committed_event(
@@ -645,12 +644,12 @@ def test_opening_gap_uses_latest_trusted_human_fragment_in_the_same_unit():
             scope=Scope(conversation_id="other-group", generation=1),
         )
     )
-    assert c.rates(105)[invitation.ref.event_id] > 0
+    assert c.opportunity_scores(105)[invitation.ref.event_id] > 0
 
     continuation = source("same-unit-fragment", at=105, reply_to=invitation.ref)
     assert c.observe_committed_event(continuation)
 
-    assert c.rates(105)[invitation.ref.event_id] == 0
-    assert c.rates(106)[invitation.ref.event_id] > 0
+    assert c.opportunity_scores(105)[invitation.ref.event_id] > 0
+    assert c.opportunity_scores(106)[invitation.ref.event_id] > 0
     c.observe_source_change(continuation.ref)
-    assert c.rates(105)[invitation.ref.event_id] > 0
+    assert c.opportunity_scores(105)[invitation.ref.event_id] > 0

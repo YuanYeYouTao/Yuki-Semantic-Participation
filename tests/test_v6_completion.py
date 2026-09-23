@@ -26,6 +26,11 @@ def score_seed(c, key, at, *, kind=CandidateKind.CONTACT, info="new", text=None)
     return event
 
 
+def prime_recent_group_context(c):
+    for index in range(30):
+        assert c.observe_committed_event(source(f"context-{index}", at=70 + index))
+
+
 def test_repeated_human_turn_is_distinct_but_repeated_seed_is_deduplicated():
     c = controller()
     original = source("first", text="Yuki，来看看")
@@ -54,13 +59,12 @@ def test_common_unit_sources_compete_once_and_are_consumed_together():
     for event in (first, second):
         c.observe_committed_event(event)
         c.apply_semantic_observation(observation(event))
-    assert len(c.rates(106)) == 1
-    c._set(threshold=0.000001)
+    assert len(c.opportunity_scores(106)) == 1
     proposal = c.advance(106, controller_epoch=0, host_available=True)
     assert set(proposal.sources) == {first.ref, second.ref}
     assert len(proposal.supports) == 2
     assert c.observe_run_feedback(feedback(proposal, at=106))
-    assert not c.rates(107)
+    assert not c.opportunity_scores(107)
     assert c.state.consumed[first.ref.event_id] == c.state.consumed[second.ref.event_id] == 1
 
 
@@ -89,21 +93,28 @@ def test_speech_ratio_only_penalizes_excess_and_survives_compaction():
     assert c.speech_ratio(105) == pytest.approx(expected)
     c.advance(800, controller_epoch=0, host_available=False)
     assert c.speech_ratio(800) == pytest.approx(expected)
-    arguments = (dynamics.IDLE, 0.9, 1, 1, 10)
-    assert dynamics.rate(*arguments, kind="conversation", speech_ratio=0.2) == dynamics.rate(
-        *arguments, kind="conversation", speech_ratio=0
+    low = dynamics.shared_cost(
+        speech=0, compute=0, activity=0, own_count=0.2, human_count=0.8
     )
-    assert (
-        dynamics.rate(*arguments, kind="conversation", speech_ratio=0.9)[0]
-        < dynamics.rate(*arguments, kind="conversation", speech_ratio=0.2)[0]
+    none = dynamics.shared_cost(
+        speech=0, compute=0, activity=0, own_count=0, human_count=0
     )
+    high = dynamics.shared_cost(
+        speech=0, compute=0, activity=0, own_count=0.9, human_count=0.1
+    )
+    assert low == none
+    assert high > low
+    ancient = dynamics.shared_cost(
+        speech=0, compute=0, activity=0, own_count=0.0009, human_count=0.0001
+    )
+    assert none < ancient < high
 
 
 @pytest.mark.parametrize("kind", [CandidateKind.CONTACT, CandidateKind.RECALL])
 def test_unanswered_seed_requires_substantial_new_reason_or_observed_response(kind):
     c = controller()
+    prime_recent_group_context(c)
     original = score_seed(c, "seed", 100, kind=kind)
-    c._set(threshold=0.000001)
     proposal = c.advance(105, controller_epoch=0, host_available=True)
     assert proposal is not None
     c.observe_run_feedback(
@@ -125,6 +136,21 @@ def test_unanswered_seed_requires_substantial_new_reason_or_observed_response(ki
     c.apply_semantic_observation(observation(reply, act="invite_yuki"))
     subsequent = score_seed(c, "now-appropriate-refinement", 110, kind=kind, info="refine")
     assert subsequent.ref.event_id in c.state.candidates
+
+
+def test_accepted_seed_updates_bounded_familiarity_across_restart():
+    c = controller()
+    prime_recent_group_context(c)
+    score_seed(c, "seed", 100)
+    assert c._familiarity(CandidateKind.CONTACT, "topic", "A", 105) == 0
+    proposal = c.advance(105, controller_epoch=0, host_available=True)
+    assert proposal is not None
+    assert c.observe_run_feedback(feedback(proposal, outcome="accepted", at=105))
+    assert c._familiarity(CandidateKind.CONTACT, "topic", "A", 105) == pytest.approx(0.45)
+    restored = Controller.restore(c.state, 705)
+    assert restored._familiarity(CandidateKind.CONTACT, "topic", "A", 705) == pytest.approx(
+        0.45 * math.exp(-600 / 21600)
+    )
 
 
 def test_explicit_stop_reopens_only_for_same_actor_with_strong_scoped_invitation():
@@ -149,8 +175,8 @@ def test_explicit_stop_reopens_only_for_same_actor_with_strong_scoped_invitation
 
 def test_late_send_receipt_recognizes_already_observed_response_after_restart():
     c = controller()
+    prime_recent_group_context(c)
     score_seed(c, "contact", 100)
-    c._set(threshold=0.000001)
     proposal = c.advance(105, controller_epoch=0, host_available=True)
     assert c.observe_run_feedback(feedback(proposal))
     reply = source("reply", at=110)
@@ -189,9 +215,9 @@ def test_withdrawing_latest_reopening_keeps_another_valid_invitation():
 
 def test_late_seed_feedback_claims_proposed_content_not_new_revision():
     c = controller()
+    prime_recent_group_context(c)
     original = score_seed(c, "seed", 100)
     original_fingerprint = c.state.content_keys[original.ref.event_id]
-    c._set(threshold=0.000001)
     proposal = c.advance(105, controller_epoch=0, host_available=True)
     revised = original.model_copy(
         update={

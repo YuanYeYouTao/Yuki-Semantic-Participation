@@ -88,34 +88,85 @@ def aggregate_attention(sources: list[tuple[float, float, float]], now: float, t
     return value
 
 
-def rate(
+def participation_factor(tendency: float, *, minimum: float = 0.15) -> float:
+    return minimum + (1 - minimum) * (max(-1, min(1, tendency)) + 1) / 2
+
+
+def social_context(context: float, human_attention: float) -> float:
+    """Fresh human evidence and slow group context are bounded alternative inputs."""
+    return 1 - (1 - context) * (1 - human_attention)
+
+
+def shared_cost(
+    *,
+    speech: float,
+    compute: float,
+    activity: float,
+    own_count: float,
+    human_count: float,
+) -> float:
+    total = own_count + human_count
+    ratio = own_count / total if total else 0.0
+    # A lone ancient self message must not leave a permanent ratio penalty.
+    return (
+        0.08 * speech
+        + 0.04 * compute
+        + 0.02 * activity
+        + 0.1 * min(1.0, total) * max(0.0, ratio - 0.35)
+        + 0.025
+    )
+
+
+def source_opportunity(
     b: Belief,
-    x: float,
+    *,
+    attention: float,
+    familiarity: float,
     support: float,
     floor: float,
     gap: float,
-    *,
-    kind: str,
-    speech: float = 0,
-    compute: float = 0,
-    activity: float = 0,
-    willingness: float = 0,
-    speech_ratio: float = 0,
-    ratio_reference: float = 0.35,
-    ratio_cost: float = 0.1,
-) -> tuple[float, float]:
-    value = (
-        (1 + 0.1 * willingness) * x
+    context: float,
+    tendency: float,
+    cost: float,
+    independent: bool,
+) -> float:
+    social = (
+        participation_factor(tendency) * attention / (1 + 0.15 * familiarity)
         + 0.35 * b[1]
         + 0.25 * b[3]
         - 0.15 * b[2]
         - 0.70 * b[4]
-        - 0.08 * speech
-        - 0.04 * compute
-        - 0.02 * activity
-        - ratio_cost * max(0, speech_ratio - ratio_reference)
     )
-    r = support * max(0, value) ** 2
-    opportunity = (1 - math.exp(-max(0, gap) / 4)) * (0.1 + 0.9 * floor)
-    ceiling = 0.125 + (0.5 - 0.125) * (b[1] + b[3]) if kind == "conversation" else 1 / 1800
-    return r, opportunity * ceiling
+    opening = (1 - math.exp(-max(0.0, gap) / 4)) * (0.1 + 0.9 * floor)
+    return support * opening * context * max(0.0, social) - cost - (0.05 if independent else 0)
+
+
+def intrinsic_opportunity(
+    *,
+    elapsed: float,
+    context: float,
+    tendency: float,
+    activity: float,
+    speech: float,
+    compute: float,
+    own_count: float,
+    human_count: float,
+    no_reply: float,
+) -> float:
+    recovery = 1 - math.exp(-max(0.0, elapsed) / 1800)
+    total = own_count + human_count
+    ratio = own_count / total if total else 0.0
+    share_cost = 0.1 * min(1.0, total) * max(0.0, ratio - 0.35)
+    return (
+        0.4
+        * participation_factor(tendency)
+        * recovery
+        * context
+        * (1 - activity)
+        * (1 - speech)
+        - 0.04 * compute
+        - share_cost
+        - 0.025
+        - 0.05
+        - 0.05 * no_reply
+    )
