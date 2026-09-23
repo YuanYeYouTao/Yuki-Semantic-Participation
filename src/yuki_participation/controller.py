@@ -1060,7 +1060,7 @@ class Controller:
         events = sorted(
             e.at for e in self.state.events.values() if e.kind == "human" and e.at <= now
         )
-        return self._leaky_trace("social_context", events, now, 3600, 0.1)
+        return self._leaky_trace("social_context", events, now, 14400, 0.1)
 
     def _no_reply(self, now: float) -> float:
         events = sorted(
@@ -1071,7 +1071,7 @@ class Controller:
             and self.state.proposals.get(report.proposal_id) is not None
             and self.state.proposals[report.proposal_id].kind == CandidateKind.INTRINSIC
         )
-        return self._leaky_trace("no_reply", events, now, 1800, 0.45)
+        return self._leaky_trace("no_reply", events, now, 3600, 0.45)
 
     def _leaky_trace(
         self,

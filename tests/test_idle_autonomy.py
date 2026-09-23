@@ -39,6 +39,7 @@ def test_group_context_decays_without_new_human_input_and_has_no_idle_timer_gate
     _prime_group(c)
     assert c._social_context(500) > c._social_context(2000) > c._social_context(86400)
     assert c.intrinsic_opportunity(2000) > 0
+    assert c.intrinsic_opportunity(7200) > 0
     assert c.intrinsic_opportunity(86400) < 0
     assert c.advance(86400, controller_epoch=0, host_available=True, intrinsic_allowed=True) is None
 
