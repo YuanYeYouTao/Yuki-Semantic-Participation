@@ -25,8 +25,9 @@ def test_intrinsic_opportunity_needs_no_semantic_source_and_does_not_repeat_imme
     assert proposal is not None
     assert proposal.kind is CandidateKind.INTRINSIC
     assert proposal.sources == () and proposal.support is None
-    assert c.observe_run_feedback(feedback(proposal, outcome="no_reply", at=at))
-    assert c._no_reply(at) > 0
+    assert c.observe_run_feedback(feedback(proposal, outcome="no_reply", at=at + 1))
+    assert c.state.last_intrinsic_accepted_at == at + 1
+    assert c._no_reply(at + 1) > 0
     assert c.intrinsic_opportunity(at + 2) < 0
     assert (
         c.advance(at + 2, controller_epoch=0, host_available=True, intrinsic_allowed=True) is None

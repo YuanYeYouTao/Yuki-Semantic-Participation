@@ -4,16 +4,16 @@
     "fixture_sha256": "f2012e53a60fc56b53601f2b4b1e20853fca5f5ae881e25a4d217a6ca36a3230",
     "rubric_revision": "v6-zh-4",
     "source_sha256": {
-      "src/yuki_participation/controller.py": "50a0ea00bc10594e87bb3b8f744b6ff5ccb2d3eb6fb5cebe8fd1b2933a25df90",
-      "src/yuki_participation/dynamics.py": "c76ad996528e98f3fd3c09c15514f091000f51426efd3bf2206df15a1163addb",
+      "src/yuki_participation/controller.py": "39dc4afde6e6671d841a25b863013e70c7f8503a4a08a972918934c5c1184be2",
+      "src/yuki_participation/dynamics.py": "bfe009ede8af8d1e310e459f87120dc4c6e4fe3264517a78dcb9858836a0327e",
       "src/yuki_participation/scheduling.py": "fea70924db07f0589968ed95e7626e8603d153c8d1276f799977d2486271a54d",
       "src/yuki_participation/session.py": "0c5923ecdb3b4356e1c38ecac60b54f91150a45ffcf64f39c957406666bd673e",
-      "scripts/group_chat_experiment.py": "4c93ee7c4105053b1d25901342e7c2907459bf91873d310f73efdd9e13a0617b"
+      "scripts/group_chat_experiment.py": "0aad9c42919387e0ff20d167569ebd839817bb77ff67e0e9a301996ca178fd7c"
     }
   },
   "replay_script_sha256": "f07639ed33d891bb6d44bf8030ecafb26f49f4ef086f66a2867c028cd4c39ace",
   "duration_days": 30,
-  "runtime_seconds": 122.85,
+  "runtime_seconds": 208.04,
   "scenes": [
     {
       "scene": "full_30d_rank_1",

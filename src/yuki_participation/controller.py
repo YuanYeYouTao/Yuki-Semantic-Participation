@@ -1182,7 +1182,8 @@ class Controller:
         groups = self._eligible_groups(now)
         scores = self.opportunity_scores(now)
         addressed = [
-            key for key, members in groups.items()
+            key
+            for key, members in groups.items()
             if any(self._addressed(member) for member in members)
         ]
         if addressed:
@@ -1291,7 +1292,7 @@ class Controller:
             if old is None or old.outcome in {"busy", "rejected"}:
                 self._set(last_accepted=max(self.state.last_accepted, feedback.at))
                 if proposal.kind == CandidateKind.INTRINSIC:
-                    self._set(last_intrinsic_accepted_at=proposal.created_at)
+                    self._set(last_intrinsic_accepted_at=feedback.at)
                 else:
                     self._consider(proposal, feedback.at)
             if proposal.kind in {CandidateKind.RECALL, CandidateKind.CONTACT}:

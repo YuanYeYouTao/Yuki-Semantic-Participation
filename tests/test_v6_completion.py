@@ -93,15 +93,9 @@ def test_speech_ratio_only_penalizes_excess_and_survives_compaction():
     assert c.speech_ratio(105) == pytest.approx(expected)
     c.advance(800, controller_epoch=0, host_available=False)
     assert c.speech_ratio(800) == pytest.approx(expected)
-    low = dynamics.shared_cost(
-        speech=0, compute=0, activity=0, own_count=0.2, human_count=0.8
-    )
-    none = dynamics.shared_cost(
-        speech=0, compute=0, activity=0, own_count=0, human_count=0
-    )
-    high = dynamics.shared_cost(
-        speech=0, compute=0, activity=0, own_count=0.9, human_count=0.1
-    )
+    low = dynamics.shared_cost(speech=0, compute=0, activity=0, own_count=0.2, human_count=0.8)
+    none = dynamics.shared_cost(speech=0, compute=0, activity=0, own_count=0, human_count=0)
+    high = dynamics.shared_cost(speech=0, compute=0, activity=0, own_count=0.9, human_count=0.1)
     assert low == none
     assert high > low
     ancient = dynamics.shared_cost(
