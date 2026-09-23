@@ -1,0 +1,719 @@
+{
+  "kind": "isolated_real_jev_on_developer_synthetic_messages",
+  "model": "jev-1.13.0",
+  "probe_date_utc": "2026-09-23",
+  "focused_fixture_sha256": "58e6553ae705321029229f82e7b1f9e0e8dd528e0db6b7680a85466a67265aa9",
+  "requests": 12,
+  "observed": 12,
+  "interaction_matches_developer_labels": 9,
+  "floor_matches_developer_labels": 6,
+  "input_tokens_known_sum": 15677,
+  "output_tokens_known_sum": 2880,
+  "rows": [
+    {
+      "case_id": "a2",
+      "scene": "no_at_continuation",
+      "gold_interaction": "extend_yuki",
+      "gold_floor": "yuki",
+      "mentions_bot": false,
+      "status": "observed",
+      "interaction": "extend_yuki",
+      "floor": "yuki",
+      "invalid_dimensions": [],
+      "answers": {
+        "interaction_mark": {
+          "choice": "extend_yuki",
+          "probabilities": {
+            "unknown": 0.01,
+            "off_focus": 0.0,
+            "ask_yuki_stop": 0.0,
+            "acknowledge": 0.0,
+            "invite_yuki": 0.06,
+            "open_group": 0.0,
+            "close_topic": 0.0,
+            "extend_yuki": 0.93,
+            "other_exchange": 0.0
+          }
+        },
+        "information_state": {
+          "choice": "refine",
+          "probabilities": {
+            "repeat": 0.0,
+            "unknown": 0.0,
+            "refine": 0.85,
+            "social_ack": 0.0,
+            "new": 0.15
+          }
+        },
+        "floor_state": {
+          "choice": "yuki",
+          "probabilities": {
+            "other": 0.08,
+            "open": 0.02,
+            "unknown": 0.03,
+            "unfinished": 0.17,
+            "yuki": 0.7
+          }
+        },
+        "boundary_scope": {
+          "choice": "unknown",
+          "probabilities": {
+            "target_thread": 0.22,
+            "group_thread": 0.1,
+            "unknown": 0.68
+          }
+        }
+      },
+      "input_tokens": 1229,
+      "output_tokens": 240,
+      "request_bytes": 2245,
+      "latency_seconds": 5.805
+    },
+    {
+      "case_id": "a3",
+      "scene": "no_at_continuation",
+      "gold_interaction": "extend_yuki",
+      "gold_floor": "yuki",
+      "mentions_bot": false,
+      "status": "observed",
+      "interaction": "extend_yuki",
+      "floor": "yuki",
+      "invalid_dimensions": [],
+      "answers": {
+        "interaction_mark": {
+          "choice": "extend_yuki",
+          "probabilities": {
+            "invite_yuki": 0.02,
+            "close_topic": 0.0,
+            "ask_yuki_stop": 0.0,
+            "unknown": 0.0,
+            "extend_yuki": 0.98,
+            "off_focus": 0.0,
+            "acknowledge": 0.0,
+            "open_group": 0.0,
+            "other_exchange": 0.0
+          }
+        },
+        "information_state": {
+          "choice": "refine",
+          "probabilities": {
+            "refine": 0.93,
+            "new": 0.07,
+            "social_ack": 0.0,
+            "unknown": 0.0,
+            "repeat": 0.0
+          }
+        },
+        "floor_state": {
+          "choice": "yuki",
+          "probabilities": {
+            "unfinished": 0.15,
+            "yuki": 0.66,
+            "open": 0.02,
+            "unknown": 0.09,
+            "other": 0.08
+          }
+        },
+        "boundary_scope": {
+          "choice": "unknown",
+          "probabilities": {
+            "group_thread": 0.07,
+            "target_thread": 0.27,
+            "unknown": 0.66
+          }
+        }
+      },
+      "input_tokens": 1377,
+      "output_tokens": 240,
+      "request_bytes": 2519,
+      "latency_seconds": 0.287
+    },
+    {
+      "case_id": "a4",
+      "scene": "no_at_continuation",
+      "gold_interaction": "invite_yuki",
+      "gold_floor": "yuki",
+      "mentions_bot": false,
+      "status": "observed",
+      "interaction": "extend_yuki",
+      "floor": "yuki",
+      "invalid_dimensions": [],
+      "answers": {
+        "interaction_mark": {
+          "choice": "extend_yuki",
+          "probabilities": {
+            "other_exchange": 0.0,
+            "invite_yuki": 0.09,
+            "off_focus": 0.0,
+            "extend_yuki": 0.91,
+            "open_group": 0.0,
+            "close_topic": 0.0,
+            "acknowledge": 0.0,
+            "ask_yuki_stop": 0.0,
+            "unknown": 0.0
+          }
+        },
+        "information_state": {
+          "choice": "repeat",
+          "probabilities": {
+            "new": 0.03,
+            "social_ack": 0.01,
+            "unknown": 0.0,
+            "repeat": 0.53,
+            "refine": 0.43
+          }
+        },
+        "floor_state": {
+          "choice": "yuki",
+          "probabilities": {
+            "other": 0.04,
+            "unfinished": 0.21,
+            "unknown": 0.03,
+            "open": 0.02,
+            "yuki": 0.7
+          }
+        },
+        "boundary_scope": {
+          "choice": "target_thread",
+          "probabilities": {
+            "group_thread": 0.25,
+            "unknown": 0.34,
+            "target_thread": 0.41
+          }
+        }
+      },
+      "input_tokens": 1463,
+      "output_tokens": 240,
+      "request_bytes": 2682,
+      "latency_seconds": 0.315
+    },
+    {
+      "case_id": "c2",
+      "scene": "closure_and_reopen",
+      "gold_interaction": "acknowledge",
+      "gold_floor": "other",
+      "mentions_bot": false,
+      "status": "observed",
+      "interaction": "acknowledge",
+      "floor": "yuki",
+      "invalid_dimensions": [],
+      "answers": {
+        "interaction_mark": {
+          "choice": "acknowledge",
+          "probabilities": {
+            "other_exchange": 0.0,
+            "unknown": 0.0,
+            "ask_yuki_stop": 0.0,
+            "open_group": 0.0,
+            "extend_yuki": 0.03,
+            "off_focus": 0.0,
+            "invite_yuki": 0.01,
+            "close_topic": 0.01,
+            "acknowledge": 0.95
+          }
+        },
+        "information_state": {
+          "choice": "social_ack",
+          "probabilities": {
+            "refine": 0.0,
+            "unknown": 0.0,
+            "new": 0.0,
+            "social_ack": 1.0,
+            "repeat": 0.0
+          }
+        },
+        "floor_state": {
+          "choice": "yuki",
+          "probabilities": {
+            "unknown": 0.14,
+            "yuki": 0.64,
+            "other": 0.11,
+            "open": 0.03,
+            "unfinished": 0.08
+          }
+        },
+        "boundary_scope": {
+          "choice": "unknown",
+          "probabilities": {
+            "group_thread": 0.08,
+            "unknown": 0.59,
+            "target_thread": 0.33
+          }
+        }
+      },
+      "input_tokens": 1133,
+      "output_tokens": 241,
+      "request_bytes": 2078,
+      "latency_seconds": 0.32
+    },
+    {
+      "case_id": "c3",
+      "scene": "closure_and_reopen",
+      "gold_interaction": "close_topic",
+      "gold_floor": "other",
+      "mentions_bot": false,
+      "status": "observed",
+      "interaction": "close_topic",
+      "floor": "yuki",
+      "invalid_dimensions": [],
+      "answers": {
+        "interaction_mark": {
+          "choice": "close_topic",
+          "probabilities": {
+            "close_topic": 0.93,
+            "other_exchange": 0.0,
+            "invite_yuki": 0.0,
+            "open_group": 0.0,
+            "off_focus": 0.0,
+            "ask_yuki_stop": 0.0,
+            "extend_yuki": 0.01,
+            "acknowledge": 0.06,
+            "unknown": 0.0
+          }
+        },
+        "information_state": {
+          "choice": "social_ack",
+          "probabilities": {
+            "new": 0.09,
+            "repeat": 0.0,
+            "social_ack": 0.78,
+            "unknown": 0.0,
+            "refine": 0.13
+          }
+        },
+        "floor_state": {
+          "choice": "yuki",
+          "probabilities": {
+            "open": 0.14,
+            "unfinished": 0.04,
+            "unknown": 0.14,
+            "yuki": 0.5,
+            "other": 0.18
+          }
+        },
+        "boundary_scope": {
+          "choice": "group_thread",
+          "probabilities": {
+            "group_thread": 0.43,
+            "target_thread": 0.31,
+            "unknown": 0.26
+          }
+        }
+      },
+      "input_tokens": 1204,
+      "output_tokens": 240,
+      "request_bytes": 2206,
+      "latency_seconds": 0.319
+    },
+    {
+      "case_id": "c5",
+      "scene": "closure_and_reopen",
+      "gold_interaction": "invite_yuki",
+      "gold_floor": "yuki",
+      "mentions_bot": false,
+      "status": "observed",
+      "interaction": "invite_yuki",
+      "floor": "yuki",
+      "invalid_dimensions": [],
+      "answers": {
+        "interaction_mark": {
+          "choice": "invite_yuki",
+          "probabilities": {
+            "invite_yuki": 0.92,
+            "ask_yuki_stop": 0.0,
+            "off_focus": 0.0,
+            "close_topic": 0.0,
+            "open_group": 0.0,
+            "unknown": 0.0,
+            "extend_yuki": 0.08,
+            "acknowledge": 0.0,
+            "other_exchange": 0.0
+          }
+        },
+        "information_state": {
+          "choice": "new",
+          "probabilities": {
+            "repeat": 0.02,
+            "unknown": 0.01,
+            "refine": 0.22,
+            "social_ack": 0.0,
+            "new": 0.75
+          }
+        },
+        "floor_state": {
+          "choice": "yuki",
+          "probabilities": {
+            "unfinished": 0.04,
+            "yuki": 0.89,
+            "unknown": 0.02,
+            "open": 0.02,
+            "other": 0.03
+          }
+        },
+        "boundary_scope": {
+          "choice": "target_thread",
+          "probabilities": {
+            "unknown": 0.31,
+            "target_thread": 0.57,
+            "group_thread": 0.12
+          }
+        }
+      },
+      "input_tokens": 1425,
+      "output_tokens": 240,
+      "request_bytes": 2602,
+      "latency_seconds": 0.285
+    },
+    {
+      "case_id": "e3",
+      "scene": "burst_and_ambiguous_floor",
+      "gold_interaction": "invite_yuki",
+      "gold_floor": "yuki",
+      "mentions_bot": false,
+      "status": "observed",
+      "interaction": "invite_yuki",
+      "floor": "yuki",
+      "invalid_dimensions": [],
+      "answers": {
+        "interaction_mark": {
+          "choice": "invite_yuki",
+          "probabilities": {
+            "invite_yuki": 0.93,
+            "unknown": 0.02,
+            "off_focus": 0.0,
+            "open_group": 0.01,
+            "extend_yuki": 0.04,
+            "close_topic": 0.0,
+            "ask_yuki_stop": 0.0,
+            "other_exchange": 0.0,
+            "acknowledge": 0.0
+          }
+        },
+        "information_state": {
+          "choice": "refine",
+          "probabilities": {
+            "refine": 0.51,
+            "unknown": 0.01,
+            "social_ack": 0.23,
+            "new": 0.22,
+            "repeat": 0.03
+          }
+        },
+        "floor_state": {
+          "choice": "yuki",
+          "probabilities": {
+            "other": 0.02,
+            "unknown": 0.02,
+            "open": 0.05,
+            "unfinished": 0.01,
+            "yuki": 0.9
+          }
+        },
+        "boundary_scope": {
+          "choice": "target_thread",
+          "probabilities": {
+            "unknown": 0.44,
+            "group_thread": 0.09,
+            "target_thread": 0.47000000000000003
+          }
+        }
+      },
+      "input_tokens": 1205,
+      "output_tokens": 241,
+      "request_bytes": 2210,
+      "latency_seconds": 0.273
+    },
+    {
+      "case_id": "e5",
+      "scene": "burst_and_ambiguous_floor",
+      "gold_interaction": "other_exchange",
+      "gold_floor": "other",
+      "mentions_bot": false,
+      "status": "observed",
+      "interaction": "other_exchange",
+      "floor": "unfinished",
+      "invalid_dimensions": [
+        "information_state"
+      ],
+      "answers": {
+        "interaction_mark": {
+          "choice": "other_exchange",
+          "probabilities": {
+            "off_focus": 0.26,
+            "invite_yuki": 0.02,
+            "extend_yuki": 0.02,
+            "open_group": 0.01,
+            "close_topic": 0.0,
+            "unknown": 0.05,
+            "acknowledge": 0.0,
+            "other_exchange": 0.64,
+            "ask_yuki_stop": 0.0
+          }
+        },
+        "floor_state": {
+          "choice": "unfinished",
+          "probabilities": {
+            "open": 0.07,
+            "unfinished": 0.4,
+            "yuki": 0.14,
+            "other": 0.29,
+            "unknown": 0.1
+          }
+        },
+        "boundary_scope": {
+          "choice": "unknown",
+          "probabilities": {
+            "group_thread": 0.02,
+            "target_thread": 0.25,
+            "unknown": 0.73
+          }
+        }
+      },
+      "input_tokens": 1338,
+      "output_tokens": 237,
+      "request_bytes": 2446,
+      "latency_seconds": 0.302
+    },
+    {
+      "case_id": "e6",
+      "scene": "burst_and_ambiguous_floor",
+      "gold_interaction": "extend_yuki",
+      "gold_floor": "yuki",
+      "mentions_bot": false,
+      "status": "observed",
+      "interaction": "invite_yuki",
+      "floor": "yuki",
+      "invalid_dimensions": [],
+      "answers": {
+        "interaction_mark": {
+          "choice": "invite_yuki",
+          "probabilities": {
+            "other_exchange": 0.06,
+            "unknown": 0.09,
+            "open_group": 0.07,
+            "ask_yuki_stop": 0.0,
+            "extend_yuki": 0.21,
+            "invite_yuki": 0.51,
+            "off_focus": 0.05,
+            "close_topic": 0.0,
+            "acknowledge": 0.01
+          }
+        },
+        "information_state": {
+          "choice": "refine",
+          "probabilities": {
+            "refine": 0.73,
+            "unknown": 0.0,
+            "new": 0.27,
+            "social_ack": 0.0,
+            "repeat": 0.0
+          }
+        },
+        "floor_state": {
+          "choice": "yuki",
+          "probabilities": {
+            "other": 0.22,
+            "yuki": 0.32,
+            "open": 0.25,
+            "unknown": 0.15,
+            "unfinished": 0.06
+          }
+        },
+        "boundary_scope": {
+          "choice": "unknown",
+          "probabilities": {
+            "group_thread": 0.04,
+            "unknown": 0.63,
+            "target_thread": 0.33
+          }
+        }
+      },
+      "input_tokens": 1412,
+      "output_tokens": 240,
+      "request_bytes": 2583,
+      "latency_seconds": 0.337
+    },
+    {
+      "case_id": "e8",
+      "scene": "burst_and_ambiguous_floor",
+      "gold_interaction": "close_topic",
+      "gold_floor": "other",
+      "mentions_bot": false,
+      "status": "observed",
+      "interaction": "close_topic",
+      "floor": "yuki",
+      "invalid_dimensions": [],
+      "answers": {
+        "interaction_mark": {
+          "choice": "close_topic",
+          "probabilities": {
+            "other_exchange": 0.0,
+            "unknown": 0.01,
+            "ask_yuki_stop": 0.0,
+            "open_group": 0.0,
+            "extend_yuki": 0.03,
+            "off_focus": 0.0,
+            "invite_yuki": 0.05,
+            "close_topic": 0.89,
+            "acknowledge": 0.02
+          }
+        },
+        "information_state": {
+          "choice": "social_ack",
+          "probabilities": {
+            "refine": 0.07,
+            "unknown": 0.01,
+            "new": 0.09,
+            "social_ack": 0.83,
+            "repeat": 0.0
+          }
+        },
+        "floor_state": {
+          "choice": "yuki",
+          "probabilities": {
+            "other": 0.22,
+            "yuki": 0.51,
+            "unknown": 0.14,
+            "open": 0.05,
+            "unfinished": 0.08
+          }
+        },
+        "boundary_scope": {
+          "choice": "target_thread",
+          "probabilities": {
+            "group_thread": 0.05,
+            "unknown": 0.38,
+            "target_thread": 0.57
+          }
+        }
+      },
+      "input_tokens": 1477,
+      "output_tokens": 240,
+      "request_bytes": 2693,
+      "latency_seconds": 0.308
+    },
+    {
+      "case_id": "f2",
+      "scene": "stop_and_silence",
+      "gold_interaction": "ask_yuki_stop",
+      "gold_floor": "other",
+      "mentions_bot": false,
+      "status": "observed",
+      "interaction": "ask_yuki_stop",
+      "floor": "yuki",
+      "invalid_dimensions": [],
+      "answers": {
+        "interaction_mark": {
+          "choice": "ask_yuki_stop",
+          "probabilities": {
+            "off_focus": 0.0,
+            "extend_yuki": 0.01,
+            "invite_yuki": 0.01,
+            "acknowledge": 0.0,
+            "open_group": 0.0,
+            "ask_yuki_stop": 0.97,
+            "close_topic": 0.01,
+            "other_exchange": 0.0,
+            "unknown": 0.0
+          }
+        },
+        "information_state": {
+          "choice": "refine",
+          "probabilities": {
+            "refine": 0.73,
+            "new": 0.23,
+            "social_ack": 0.03,
+            "repeat": 0.01,
+            "unknown": 0.0
+          }
+        },
+        "floor_state": {
+          "choice": "yuki",
+          "probabilities": {
+            "unknown": 0.05,
+            "open": 0.06,
+            "yuki": 0.67,
+            "other": 0.15,
+            "unfinished": 0.07
+          }
+        },
+        "boundary_scope": {
+          "choice": "target_thread",
+          "probabilities": {
+            "unknown": 0.34,
+            "target_thread": 0.45,
+            "group_thread": 0.21
+          }
+        }
+      },
+      "input_tokens": 1136,
+      "output_tokens": 242,
+      "request_bytes": 2082,
+      "latency_seconds": 0.3
+    },
+    {
+      "case_id": "f4",
+      "scene": "stop_and_silence",
+      "gold_interaction": "other_exchange",
+      "gold_floor": "other",
+      "mentions_bot": false,
+      "status": "observed",
+      "interaction": "off_focus",
+      "floor": "yuki",
+      "invalid_dimensions": [],
+      "answers": {
+        "interaction_mark": {
+          "choice": "off_focus",
+          "probabilities": {
+            "close_topic": 0.06,
+            "unknown": 0.09,
+            "off_focus": 0.22,
+            "extend_yuki": 0.03,
+            "open_group": 0.02,
+            "invite_yuki": 0.17,
+            "acknowledge": 0.22,
+            "other_exchange": 0.04,
+            "ask_yuki_stop": 0.15
+          }
+        },
+        "information_state": {
+          "choice": "social_ack",
+          "probabilities": {
+            "social_ack": 0.9,
+            "new": 0.09,
+            "unknown": 0.0,
+            "repeat": 0.01,
+            "refine": 0.0
+          }
+        },
+        "floor_state": {
+          "choice": "yuki",
+          "probabilities": {
+            "other": 0.08,
+            "unknown": 0.14,
+            "yuki": 0.58,
+            "unfinished": 0.08,
+            "open": 0.12
+          }
+        },
+        "boundary_scope": {
+          "choice": "unknown",
+          "probabilities": {
+            "group_thread": 0.09,
+            "unknown": 0.6,
+            "target_thread": 0.31
+          }
+        }
+      },
+      "input_tokens": 1278,
+      "output_tokens": 239,
+      "request_bytes": 2332,
+      "latency_seconds": 0.333
+    }
+  ],
+  "limitations": [
+    "Gold labels were authored with the fixture and are not independent blind annotation.",
+    "These requests do not use live Yuki admission, Main Agent, tools, or QQ delivery.",
+    "No accuracy claim about real group chats follows from these synthetic cases."
+  ]
+}

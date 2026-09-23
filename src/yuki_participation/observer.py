@@ -124,6 +124,16 @@ class JevObserver:
                     "thread": threads[option.thread],
                     "target": option.target,
                     "label": option.label,
+                    **(
+                        {
+                            "self_anchor": references.get(
+                                (option.self_anchor.event_id, option.self_anchor.revision),
+                                "unavailable",
+                            )
+                        }
+                        if option.self_anchor is not None
+                        else {}
+                    ),
                 }
                 for option in snapshot.focus.unit_options
             ]
@@ -141,12 +151,16 @@ class JevObserver:
             size = len(self._encode_request(prepared))
             if size <= self.max_request_bytes:
                 return prepared
+            required = {
+                ref
+                for ref in (
+                    prepared.focus.reply_to,
+                    *(option.self_anchor for option in prepared.focus.unit_options),
+                )
+                if ref is not None
+            }
             removable = next(
-                (
-                    index
-                    for index, e in enumerate(prepared.context)
-                    if e.ref != prepared.focus.reply_to
-                ),
+                (index for index, e in enumerate(prepared.context) if e.ref not in required),
                 None,
             )
             if removable is None:

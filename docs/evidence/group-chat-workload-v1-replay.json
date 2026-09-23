@@ -1,0 +1,543 @@
+{
+  "kind": "offline_fixture_controller_replay",
+  "provenance": {
+    "fixture_sha256": "056cbb0c1b56ae3f8ebb80e10b5eaf98cbabfc51400b1484d9039f68c50794b4",
+    "rubric_revision": "v6-zh-3",
+    "source_sha256": {
+      "src/yuki_participation/controller.py": "cc55d24b99cafad38e1a82500769041983235e67b5e0acb9f6da435ec39b0df9",
+      "src/yuki_participation/dynamics.py": "c318c78c86eeb13c57da14825fdc0dd3d3e4ba20e7d4c5ec61d8ee391bd24771",
+      "src/yuki_participation/scheduling.py": "af213b022261b63edb474114857edd581c76b035b3a54bf3a694fa8800c15df1",
+      "src/yuki_participation/session.py": "0c5923ecdb3b4356e1c38ecac60b54f91150a45ffcf64f39c957406666bd673e",
+      "scripts/group_chat_experiment.py": "017d2b047bfbdef0991d63ef54a3c3f5de4630dbcbabafe597bcab90899ba0fe"
+    }
+  },
+  "fixture_kind": "fully_synthetic_group_chat_workload",
+  "provider_requests": 0,
+  "main_agent_requests": 0,
+  "qq_messages_sent": 0,
+  "total_human_messages": 203,
+  "total_observer_calls": 141,
+  "total_proposals": 22,
+  "total_proposals_with_no_at_source": 16,
+  "scenes": [
+    {
+      "scene": "server_shape_rank_1",
+      "human_messages": 120,
+      "human_without_at": 94,
+      "interarrival_le_60_fraction": 0.8571,
+      "observer_calls": 80,
+      "observer_trace": [],
+      "queue_expired": 37,
+      "queue_dropped": 0,
+      "proposals": [
+        {
+          "at": 1040.0,
+          "thread": "topic-1",
+          "target": "P11",
+          "sources": [
+            "g1-1"
+          ],
+          "no_at_sources": [],
+          "gold_acts": [
+            "invite_yuki"
+          ],
+          "age_seconds": 40.0,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 1112.11,
+          "thread": "topic-1",
+          "target": "P12",
+          "sources": [
+            "g1-3"
+          ],
+          "no_at_sources": [],
+          "gold_acts": [
+            "invite_yuki"
+          ],
+          "age_seconds": 48.19,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 1510.24,
+          "thread": "topic-3",
+          "target": "P6",
+          "sources": [
+            "g1-15"
+          ],
+          "no_at_sources": [],
+          "gold_acts": [
+            "extend_yuki"
+          ],
+          "age_seconds": 49.17,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 4321.02,
+          "thread": "topic-1",
+          "target": "P2",
+          "sources": [
+            "g1-31"
+          ],
+          "no_at_sources": [],
+          "gold_acts": [
+            "invite_yuki"
+          ],
+          "age_seconds": 36.0,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 5710.56,
+          "thread": "topic-2",
+          "target": "P1",
+          "sources": [
+            "g1-59"
+          ],
+          "no_at_sources": [
+            "g1-59"
+          ],
+          "gold_acts": [
+            "invite_yuki"
+          ],
+          "age_seconds": 13.17,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 5741.5,
+          "thread": "topic-3",
+          "target": "P13",
+          "sources": [
+            "g1-60"
+          ],
+          "no_at_sources": [
+            "g1-60"
+          ],
+          "gold_acts": [
+            "invite_yuki"
+          ],
+          "age_seconds": 40.7,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 7178.11,
+          "thread": "topic-1",
+          "target": "P1",
+          "sources": [
+            "g1-65"
+          ],
+          "no_at_sources": [
+            "g1-65"
+          ],
+          "gold_acts": [
+            "invite_yuki"
+          ],
+          "age_seconds": 50.54,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 9285.61,
+          "thread": "topic-1",
+          "target": "P3",
+          "sources": [
+            "g1-84"
+          ],
+          "no_at_sources": [
+            "g1-84"
+          ],
+          "gold_acts": [
+            "invite_yuki"
+          ],
+          "age_seconds": 48.17,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 10978.19,
+          "thread": "topic-1",
+          "target": "P3",
+          "sources": [
+            "g1-107"
+          ],
+          "no_at_sources": [],
+          "gold_acts": [
+            "invite_yuki"
+          ],
+          "age_seconds": 12.0,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 15341.13,
+          "thread": "topic-1",
+          "target": "P1",
+          "sources": [
+            "g1-108"
+          ],
+          "no_at_sources": [],
+          "gold_acts": [
+            "invite_yuki"
+          ],
+          "age_seconds": 40.47,
+          "unobserved_boundary_before_proposal": []
+        }
+      ],
+      "proposal_count": 10,
+      "proposals_with_no_at_source": 4,
+      "proposals_after_unobserved_boundary": 0,
+      "recorded_outcome": "no_reply_for_every_proposal",
+      "sent_messages": 0
+    },
+    {
+      "scene": "server_shape_rank_2",
+      "human_messages": 60,
+      "human_without_at": 56,
+      "interarrival_le_60_fraction": 0.7627,
+      "observer_calls": 45,
+      "observer_trace": [],
+      "queue_expired": 14,
+      "queue_dropped": 0,
+      "proposals": [
+        {
+          "at": 1038.97,
+          "thread": "topic-2",
+          "target": "P8",
+          "sources": [
+            "g2-1"
+          ],
+          "no_at_sources": [
+            "g2-1"
+          ],
+          "gold_acts": [
+            "open_group"
+          ],
+          "age_seconds": 38.97,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 1108.31,
+          "thread": "topic-1",
+          "target": "P1",
+          "sources": [
+            "g2-2"
+          ],
+          "no_at_sources": [
+            "g2-2"
+          ],
+          "gold_acts": [
+            "invite_yuki"
+          ],
+          "age_seconds": 77.34,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 1136.31,
+          "thread": "topic-2",
+          "target": "P8",
+          "sources": [
+            "g2-3"
+          ],
+          "no_at_sources": [
+            "g2-3"
+          ],
+          "gold_acts": [
+            "extend_yuki"
+          ],
+          "age_seconds": 68.15,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 26239.26,
+          "thread": "topic-2",
+          "target": "P2",
+          "sources": [
+            "g2-19"
+          ],
+          "no_at_sources": [
+            "g2-19"
+          ],
+          "gold_acts": [
+            "extend_yuki"
+          ],
+          "age_seconds": 75.7,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 65606.23,
+          "thread": "topic-3",
+          "target": "P1",
+          "sources": [
+            "g2-35"
+          ],
+          "no_at_sources": [
+            "g2-35"
+          ],
+          "gold_acts": [
+            "open_group"
+          ],
+          "age_seconds": 53.59,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 65624.23,
+          "thread": "topic-2",
+          "target": "P2",
+          "sources": [
+            "g2-36"
+          ],
+          "no_at_sources": [
+            "g2-36"
+          ],
+          "gold_acts": [
+            "invite_yuki"
+          ],
+          "age_seconds": 20.0,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 76294.01,
+          "thread": "topic-2",
+          "target": "P1",
+          "sources": [
+            "g2-60"
+          ],
+          "no_at_sources": [
+            "g2-60"
+          ],
+          "gold_acts": [
+            "open_group"
+          ],
+          "age_seconds": 76.0,
+          "unobserved_boundary_before_proposal": []
+        }
+      ],
+      "proposal_count": 7,
+      "proposals_with_no_at_source": 7,
+      "proposals_after_unobserved_boundary": 0,
+      "recorded_outcome": "no_reply_for_every_proposal",
+      "sent_messages": 0
+    },
+    {
+      "scene": "no_at_continuation",
+      "human_messages": 5,
+      "human_without_at": 4,
+      "interarrival_le_60_fraction": 0.75,
+      "observer_calls": 4,
+      "observer_trace": [
+        {
+          "focus": "a2",
+          "at": 1050.0
+        },
+        {
+          "focus": "b1",
+          "at": 1080.0
+        },
+        {
+          "focus": "a3",
+          "at": 1110.0
+        },
+        {
+          "focus": "a4",
+          "at": 1178.0
+        }
+      ],
+      "queue_expired": 0,
+      "queue_dropped": 0,
+      "proposals": [
+        {
+          "at": 1062.0,
+          "thread": "topic-a",
+          "target": "A",
+          "sources": [
+            "a2"
+          ],
+          "no_at_sources": [
+            "a2"
+          ],
+          "gold_acts": [
+            "extend_yuki"
+          ],
+          "age_seconds": 42.0,
+          "unobserved_boundary_before_proposal": []
+        },
+        {
+          "at": 1184.0,
+          "thread": "topic-a",
+          "target": "A",
+          "sources": [
+            "a4"
+          ],
+          "no_at_sources": [
+            "a4"
+          ],
+          "gold_acts": [
+            "invite_yuki"
+          ],
+          "age_seconds": 14.0,
+          "unobserved_boundary_before_proposal": []
+        }
+      ],
+      "proposal_count": 2,
+      "proposals_with_no_at_source": 2,
+      "proposals_after_unobserved_boundary": 0,
+      "recorded_outcome": "no_reply_for_every_proposal",
+      "sent_messages": 0
+    },
+    {
+      "scene": "closure_and_reopen",
+      "human_messages": 6,
+      "human_without_at": 6,
+      "interarrival_le_60_fraction": 0.8,
+      "observer_calls": 5,
+      "observer_trace": [
+        {
+          "focus": "c1",
+          "at": 2030.0
+        },
+        {
+          "focus": "c2",
+          "at": 2060.0
+        },
+        {
+          "focus": "d1",
+          "at": 2090.0
+        },
+        {
+          "focus": "c4",
+          "at": 2120.0
+        },
+        {
+          "focus": "c5",
+          "at": 2208.0
+        }
+      ],
+      "queue_expired": 1,
+      "queue_dropped": 0,
+      "proposals": [
+        {
+          "at": 2036.0,
+          "thread": "topic-c",
+          "target": "A",
+          "sources": [
+            "c1"
+          ],
+          "no_at_sources": [
+            "c1"
+          ],
+          "gold_acts": [
+            "invite_yuki"
+          ],
+          "age_seconds": 36.0,
+          "unobserved_boundary_before_proposal": [
+            "c3"
+          ]
+        },
+        {
+          "at": 2214.0,
+          "thread": "topic-c",
+          "target": "A",
+          "sources": [
+            "c5"
+          ],
+          "no_at_sources": [
+            "c5"
+          ],
+          "gold_acts": [
+            "invite_yuki"
+          ],
+          "age_seconds": 14.0,
+          "unobserved_boundary_before_proposal": []
+        }
+      ],
+      "proposal_count": 2,
+      "proposals_with_no_at_source": 2,
+      "proposals_after_unobserved_boundary": 1,
+      "recorded_outcome": "no_reply_for_every_proposal",
+      "sent_messages": 0
+    },
+    {
+      "scene": "burst_and_ambiguous_floor",
+      "human_messages": 8,
+      "human_without_at": 8,
+      "interarrival_le_60_fraction": 1.0,
+      "observer_calls": 3,
+      "observer_trace": [
+        {
+          "focus": "e1",
+          "at": 3030.0
+        },
+        {
+          "focus": "e2",
+          "at": 3060.0
+        },
+        {
+          "focus": "e4",
+          "at": 3090.0
+        }
+      ],
+      "queue_expired": 5,
+      "queue_dropped": 0,
+      "proposals": [],
+      "proposal_count": 0,
+      "proposals_with_no_at_source": 0,
+      "proposals_after_unobserved_boundary": 0,
+      "recorded_outcome": "no_reply_for_every_proposal",
+      "sent_messages": 0
+    },
+    {
+      "scene": "stop_and_silence",
+      "human_messages": 4,
+      "human_without_at": 4,
+      "interarrival_le_60_fraction": 0.3333,
+      "observer_calls": 4,
+      "observer_trace": [
+        {
+          "focus": "f1",
+          "at": 4030.0
+        },
+        {
+          "focus": "f2",
+          "at": 4060.0
+        },
+        {
+          "focus": "f3",
+          "at": 4208.0
+        },
+        {
+          "focus": "f4",
+          "at": 4508.0
+        }
+      ],
+      "queue_expired": 0,
+      "queue_dropped": 0,
+      "proposals": [
+        {
+          "at": 4050.0,
+          "thread": "topic-g",
+          "target": "A",
+          "sources": [
+            "f1"
+          ],
+          "no_at_sources": [
+            "f1"
+          ],
+          "gold_acts": [
+            "invite_yuki"
+          ],
+          "age_seconds": 50.0,
+          "unobserved_boundary_before_proposal": [
+            "f2"
+          ]
+        }
+      ],
+      "proposal_count": 1,
+      "proposals_with_no_at_source": 1,
+      "proposals_after_unobserved_boundary": 1,
+      "recorded_outcome": "no_reply_for_every_proposal",
+      "sent_messages": 0
+    }
+  ],
+  "limitations": [
+    "Fixture one-hot semantic labels are not Jev predictions or independent human annotation.",
+    "Idealized thread/target IDs bypass Yuki's live canonical routing and ambiguity resolution.",
+    "Every proposal receives a synthetic NO_REPLY; no Main Agent, tools, permissions, or QQ delivery are exercised.",
+    "Virtual tick and opportunity timings are not HTTP or live response latency."
+  ]
+}

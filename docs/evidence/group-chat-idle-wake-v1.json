@@ -1,0 +1,59 @@
+{
+  "kind": "isolated_timer_only_controller_fixture",
+  "controller_sha256": "cc55d24b99cafad38e1a82500769041983235e67b5e0acb9f6da435ec39b0df9",
+  "session_sha256": "0c5923ecdb3b4356e1c38ecac60b54f91150a45ffcf64f39c957406666bd673e",
+  "trials_per_case": 20,
+  "cases": [
+    {
+      "act": "invite_yuki",
+      "inbound_messages": 20,
+      "virtual_clock_step_seconds": 2,
+      "maximum_silence_seconds": 100,
+      "fixture_observer_calls": 20,
+      "proposals_after_last_inbound": 20,
+      "proposal_age_seconds": {
+        "min": 32.0,
+        "max": 62.0,
+        "values": [
+          40.0,
+          36.0,
+          58.0,
+          42.0,
+          40.0,
+          52.0,
+          50.0,
+          48.0,
+          46.0,
+          46.0,
+          54.0,
+          38.0,
+          58.0,
+          48.0,
+          32.0,
+          54.0,
+          44.0,
+          62.0,
+          40.0,
+          40.0
+        ]
+      },
+      "actual_messages_sent": 0
+    },
+    {
+      "act": "other_exchange",
+      "inbound_messages": 20,
+      "virtual_clock_step_seconds": 2,
+      "maximum_silence_seconds": 100,
+      "fixture_observer_calls": 20,
+      "proposals_after_last_inbound": 0,
+      "proposal_age_seconds": null,
+      "actual_messages_sent": 0
+    }
+  ],
+  "limits": [
+    "The 2-second virtual clock mirrors the host loop cadence but not host admission.",
+    "Developer one-hot labels are not Jev or independently annotated semantics.",
+    "A proposal is not a Main Agent run or QQ message.",
+    "No fresh semantic source can sustain proposals after its support expires."
+  ]
+}

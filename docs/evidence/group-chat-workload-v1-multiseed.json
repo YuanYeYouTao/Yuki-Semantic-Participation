@@ -1,0 +1,325 @@
+{
+  "kind": "offline_fixture_controller_multiseed",
+  "provenance": {
+    "fixture_sha256": "056cbb0c1b56ae3f8ebb80e10b5eaf98cbabfc51400b1484d9039f68c50794b4",
+    "rubric_revision": "v6-zh-3",
+    "source_sha256": {
+      "src/yuki_participation/controller.py": "cc55d24b99cafad38e1a82500769041983235e67b5e0acb9f6da435ec39b0df9",
+      "src/yuki_participation/dynamics.py": "c318c78c86eeb13c57da14825fdc0dd3d3e4ba20e7d4c5ec61d8ee391bd24771",
+      "src/yuki_participation/scheduling.py": "af213b022261b63edb474114857edd581c76b035b3a54bf3a694fa8800c15df1",
+      "src/yuki_participation/session.py": "0c5923ecdb3b4356e1c38ecac60b54f91150a45ffcf64f39c957406666bd673e",
+      "scripts/group_chat_experiment.py": "017d2b047bfbdef0991d63ef54a3c3f5de4630dbcbabafe597bcab90899ba0fe"
+    }
+  },
+  "fixture_kind": "fully_synthetic_group_chat_workload",
+  "runs": 20,
+  "provider_requests": 0,
+  "main_agent_requests": 0,
+  "qq_messages_sent": 0,
+  "summary": {
+    "proposals": {
+      "min": 21,
+      "median": 25.5,
+      "max": 30,
+      "mean": 25.2
+    },
+    "no_at_proposals": {
+      "min": 14,
+      "median": 18.5,
+      "max": 22,
+      "mean": 18.5
+    },
+    "pending_boundary_proposals": {
+      "min": 1,
+      "median": 2.0,
+      "max": 3,
+      "mean": 1.95
+    }
+  },
+  "trials": [
+    {
+      "seed": 20260923,
+      "proposals": 22,
+      "no_at_proposals": 16,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 10,
+        "server_shape_rank_2": 7,
+        "no_at_continuation": 2,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 1
+      }
+    },
+    {
+      "seed": 20261932,
+      "proposals": 27,
+      "no_at_proposals": 19,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 14,
+        "server_shape_rank_2": 8,
+        "no_at_continuation": 2,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 1
+      }
+    },
+    {
+      "seed": 20262941,
+      "proposals": 23,
+      "no_at_proposals": 17,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 12,
+        "server_shape_rank_2": 5,
+        "no_at_continuation": 2,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 2
+      }
+    },
+    {
+      "seed": 20263950,
+      "proposals": 26,
+      "no_at_proposals": 20,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 14,
+        "server_shape_rank_2": 6,
+        "no_at_continuation": 3,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 1
+      }
+    },
+    {
+      "seed": 20264959,
+      "proposals": 25,
+      "no_at_proposals": 20,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 11,
+        "server_shape_rank_2": 9,
+        "no_at_continuation": 2,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 1
+      }
+    },
+    {
+      "seed": 20265968,
+      "proposals": 24,
+      "no_at_proposals": 18,
+      "pending_boundary_proposals": 1,
+      "by_scene": {
+        "server_shape_rank_1": 13,
+        "server_shape_rank_2": 7,
+        "no_at_continuation": 2,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 0
+      }
+    },
+    {
+      "seed": 20266977,
+      "proposals": 26,
+      "no_at_proposals": 19,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 15,
+        "server_shape_rank_2": 6,
+        "no_at_continuation": 2,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 1
+      }
+    },
+    {
+      "seed": 20267986,
+      "proposals": 27,
+      "no_at_proposals": 21,
+      "pending_boundary_proposals": 3,
+      "by_scene": {
+        "server_shape_rank_1": 10,
+        "server_shape_rank_2": 10,
+        "no_at_continuation": 2,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 1,
+        "stop_and_silence": 2
+      }
+    },
+    {
+      "seed": 20268995,
+      "proposals": 22,
+      "no_at_proposals": 17,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 11,
+        "server_shape_rank_2": 5,
+        "no_at_continuation": 3,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 1
+      }
+    },
+    {
+      "seed": 20270004,
+      "proposals": 26,
+      "no_at_proposals": 18,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 13,
+        "server_shape_rank_2": 7,
+        "no_at_continuation": 2,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 2
+      }
+    },
+    {
+      "seed": 20271013,
+      "proposals": 27,
+      "no_at_proposals": 18,
+      "pending_boundary_proposals": 1,
+      "by_scene": {
+        "server_shape_rank_1": 13,
+        "server_shape_rank_2": 8,
+        "no_at_continuation": 3,
+        "closure_and_reopen": 1,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 2
+      }
+    },
+    {
+      "seed": 20272022,
+      "proposals": 21,
+      "no_at_proposals": 14,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 11,
+        "server_shape_rank_2": 4,
+        "no_at_continuation": 3,
+        "closure_and_reopen": 1,
+        "burst_and_ambiguous_floor": 1,
+        "stop_and_silence": 1
+      }
+    },
+    {
+      "seed": 20273031,
+      "proposals": 30,
+      "no_at_proposals": 22,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 16,
+        "server_shape_rank_2": 6,
+        "no_at_continuation": 3,
+        "closure_and_reopen": 3,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 2
+      }
+    },
+    {
+      "seed": 20274040,
+      "proposals": 26,
+      "no_at_proposals": 20,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 15,
+        "server_shape_rank_2": 6,
+        "no_at_continuation": 2,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 1
+      }
+    },
+    {
+      "seed": 20275049,
+      "proposals": 25,
+      "no_at_proposals": 18,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 13,
+        "server_shape_rank_2": 7,
+        "no_at_continuation": 2,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 1
+      }
+    },
+    {
+      "seed": 20276058,
+      "proposals": 24,
+      "no_at_proposals": 18,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 13,
+        "server_shape_rank_2": 5,
+        "no_at_continuation": 2,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 2
+      }
+    },
+    {
+      "seed": 20277067,
+      "proposals": 24,
+      "no_at_proposals": 16,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 13,
+        "server_shape_rank_2": 5,
+        "no_at_continuation": 2,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 2
+      }
+    },
+    {
+      "seed": 20278076,
+      "proposals": 28,
+      "no_at_proposals": 20,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 15,
+        "server_shape_rank_2": 8,
+        "no_at_continuation": 2,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 1
+      }
+    },
+    {
+      "seed": 20279085,
+      "proposals": 27,
+      "no_at_proposals": 20,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 15,
+        "server_shape_rank_2": 6,
+        "no_at_continuation": 2,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 2
+      }
+    },
+    {
+      "seed": 20280094,
+      "proposals": 24,
+      "no_at_proposals": 19,
+      "pending_boundary_proposals": 2,
+      "by_scene": {
+        "server_shape_rank_1": 11,
+        "server_shape_rank_2": 7,
+        "no_at_continuation": 2,
+        "closure_and_reopen": 2,
+        "burst_and_ambiguous_floor": 0,
+        "stop_and_silence": 2
+      }
+    }
+  ],
+  "limitations": [
+    "Only controller random seeds vary; workload and developer-authored labels are fixed.",
+    "This is not Jev, Main Agent, host admission, or QQ behavioral validation."
+  ]
+}
