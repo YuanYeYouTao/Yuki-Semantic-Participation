@@ -551,11 +551,7 @@ async def replay_many(fixture: dict[str, object], runs: int) -> dict[str, object
     def summary(field: str) -> dict[str, float | int]:
         values = sorted(int(trial[field]) for trial in trials)
         middle = len(values) // 2
-        median = (
-            values[middle]
-            if len(values) % 2
-            else (values[middle - 1] + values[middle]) / 2
-        )
+        median = values[middle] if len(values) % 2 else (values[middle - 1] + values[middle]) / 2
         return {
             "min": values[0],
             "median": median,
