@@ -123,8 +123,8 @@ def autonomy_pressure(
         - 0.3 * compute
         - 0.8 * no_reply
         - 1.8 * work_fast
-        - 0.7 * work_slow
-        - 1.4 * exposure
+        - 0.25 * work_slow
+        - 0.55 * exposure
         + 0.5 * reception
     )
 
@@ -166,4 +166,4 @@ def intrinsic_rate(
     pressure: float,
 ) -> float:
     # The quiet-group floor is a low rate, not a timer or a permission grant.
-    return (1 / 1800) * (0.02 + 0.98 * max(0.0, min(1.0, context))) * sigmoid(pressure)
+    return (1 / 1800) * (0.03 + 0.97 * max(0.0, min(1.0, context))) * sigmoid(pressure)

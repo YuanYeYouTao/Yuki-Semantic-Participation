@@ -28,8 +28,8 @@ W_s(t) = Σ_work exp(-(t-t_work)/21600)
 E(t) = Σ_public_work (1-positive_reception_work)
        · (1-exp(-(t-t_public)/1200)) · exp(-(t-t_public)/43200)
 R(t) = tanh(Σ_observation reception_score · exp(-(t-t_observation)/21600))
-z = -0.6 + 0.8d - 0.5q - 0.3f - 0.8n - 1.8W_f - 0.7W_s - 1.4E + 0.5R
-C_group = 0.02 + 0.98ℓ
+z = -0.6 + 0.8d - 0.5q - 0.3f - 0.8n - 1.8W_f - 0.25W_s - 0.55E + 0.5R
+C_group = 0.03 + 0.97ℓ
 λ_intrinsic = C_group · sigmoid(z) / 1800
 P(本轮机会 | Δt) = 1-exp(-λ_total Δt)
 ```
@@ -55,9 +55,12 @@ P(本轮机会 | Δt) = 1-exp(-λ_total Δt)
 以及快照恢复。`scripts/replay_autonomous_evolution.py` 在旧 30 天合成资料上分别模拟
 每次 Work 启动后 `NO_REPLY` 与公开发出后无人回应，比较自主机会分布；模拟发送不进入
 真实 SocialService，也没有真人接收观测。锚定回复和迟到回执由定向测试覆盖。
-两条各 30 天轨迹的结果分别为 1,578 次 proposal／34 次无来源机会／10 次超过六小时静默，
-以及 1,548／9／3；最长静默后 proposal 分别约 34 与 33 小时。
-报告见[仅 Work 回执](evidence/autonomous-social-feedback-no-reply.json)和
-[模拟公开发送](evidence/autonomous-social-feedback-unanswered-send.json)。
+生产观察发现原系数令活跃群在多个已发送 Work 后持续数小时处于极低机会率；
+调整仅放松慢 Work 密度、未获确认回应的暴露和长期沉寂底率。1800 秒快 Work 惩罚、
+真人活动、`NO_REPLY`、明确停止和 Host 接纳边界保持原义。两条各 30 天轨迹合计：
+`NO_REPLY` 模拟有 1,616 次 proposal／66 次无来源机会／15 次超过六小时静默；
+无人回应的公开发送模拟有 1,568／24／7。旧系数对应为 1,578／34／10 与
+1,548／9／3。新报告见[仅 Work 回执](evidence/autonomous-recovery-tuning-no-reply.json)和
+[模拟公开发送](evidence/autonomous-recovery-tuning-unanswered-send.json)。
 真实群聊效果须与 Host 回执及 Jev 观察另行验证。参数为首轮试验值，
 上线与调整须保留版本和回放证据。
