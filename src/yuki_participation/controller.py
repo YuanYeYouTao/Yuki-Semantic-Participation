@@ -98,6 +98,28 @@ class TraceBaseline(Record):
     value: float = Field(ge=0, allow_inf_nan=False)
 
 
+class WorkPulse(Record):
+    started_at: float = Field(ge=0, allow_inf_nan=False)
+    public_at: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    archived_positive: float = Field(default=0, ge=0, le=1, allow_inf_nan=False)
+
+
+class OutboundAnchor(Record):
+    run_ref: str
+    at: float = Field(ge=0, allow_inf_nan=False)
+
+
+class Reception(Record):
+    run_ref: str
+    at: float = Field(ge=0, allow_inf_nan=False)
+    score: float = Field(ge=-1, le=1, allow_inf_nan=False)
+
+
+class ReceptionBaseline(Record):
+    at: float = Field(ge=0, allow_inf_nan=False)
+    value: float = Field(allow_inf_nan=False)
+
+
 class ObservationRefs(Record):
     """Original text is stored once in State.events, not copied into every snapshot."""
 
@@ -159,10 +181,8 @@ class State(Record):
     pending: str | None = None
     attentions: dict[str, float] = Field(default_factory=dict)
     last_accepted: float = -1e9
-    self_reference_at: float | None = None
     last_human_at: float | None = None
     last_self_message_at: float | None = None
-    last_intrinsic_accepted_at: float | None = None
     skipped_seconds: float = 0
     capacity_blocked: bool = False
     observer_checkpoint: dict[str, object] = Field(default_factory=dict)
@@ -178,6 +198,12 @@ class State(Record):
     content_keys: dict[str, str] = Field(default_factory=dict)
     seed_claims: dict[str, float] = Field(default_factory=dict)
     seed_attempts: dict[str, SeedAttempt] = Field(default_factory=dict)
+    work_pulses: dict[str, WorkPulse] = Field(default_factory=dict)
+    outbound_anchors: dict[str, OutboundAnchor] = Field(default_factory=dict)
+    receptions: dict[str, Reception] = Field(default_factory=dict)
+    reception_baseline: ReceptionBaseline | None = None
+    last_sample_at: float | None = None
+    sample_sequence: int = 0
 
     @model_validator(mode="before")
     @classmethod
@@ -185,10 +211,54 @@ class State(Record):
         if not isinstance(value, dict):
             return value
         # Old proposal-time stamps are not evidence of an accepted SELF run.
-        obsolete = {"threshold", "hazard", "intrinsic_base_at", "last_intrinsic_at"}
+        obsolete = {
+            "threshold",
+            "hazard",
+            "intrinsic_base_at",
+            "last_intrinsic_at",
+            "self_reference_at",
+            "last_intrinsic_accepted_at",
+        }
         migrated = {key: item for key, item in value.items() if key not in obsolete}
-        if "self_reference_at" not in migrated:
-            migrated["self_reference_at"] = value.get("intrinsic_base_at", value.get("now"))
+        if isinstance(traces := migrated.get("trace_baselines"), dict):
+            migrated["trace_baselines"] = {
+                key: item
+                for key, item in traces.items()
+                if key in {"compute", "activity", "social_context", "no_reply"}
+            }
+        if "work_pulses" not in migrated:
+            # Only currently retained, proposal-bound real effects can seed the
+            # new density. Retired ratio/message traces cannot prove a Work.
+            pulses: dict[str, dict[str, float | None]] = {}
+            proposals = migrated.get("proposals", {})
+            effects = migrated.get("effects", {})
+            if isinstance(proposals, dict) and isinstance(effects, dict):
+                for record in effects.values():
+                    if not isinstance(record, dict):
+                        continue
+                    proposal_id = record.get("proposal_id")
+                    if not isinstance(proposal_id, str) or proposal_id not in proposals:
+                        continue
+                    run_ref = record.get("run_ref")
+                    effect = record.get("effect")
+                    if not isinstance(run_ref, str) or not isinstance(effect, dict):
+                        continue
+                    kind, at = effect.get("kind"), effect.get("at")
+                    if kind not in {"compute", "message"} or not isinstance(at, int | float):
+                        continue
+                    if not math.isfinite(at) or at < 0:
+                        continue
+                    pulse = pulses.setdefault(run_ref, {"started_at": at, "public_at": None})
+                    started_at = pulse["started_at"]
+                    pulse["started_at"] = (
+                        min(float(started_at), at) if started_at is not None else at
+                    )
+                    if kind == "message":
+                        public_at = pulse["public_at"]
+                        pulse["public_at"] = (
+                            min(float(public_at), at) if public_at is not None else at
+                        )
+            migrated["work_pulses"] = pulses
         return migrated
 
 
@@ -196,7 +266,7 @@ class Controller:
     """Semantic opportunities with a single Host-owned admission boundary."""
 
     def __init__(self, scope: Scope, now: float) -> None:
-        self.state = State(scope=scope, now=now, self_reference_at=now)
+        self.state = State(scope=scope, now=now, last_sample_at=now)
 
     def _set(self, **updates: object) -> None:
         self.state = self.state.model_copy(update=updates)
@@ -307,6 +377,8 @@ class Controller:
         )
         self.state.invalidated[key] = max(invalid.revision, self.state.invalidated.get(key, 0))
         current = self.state.events.get(key)
+        if current is None or current.ref.revision <= invalid.revision:
+            self.state.receptions.pop(key, None)
         if current and current.ref.revision <= invalid.revision:
             self.state.events.pop(key)
         for boundary_key, boundary in list(self.state.boundaries.items()):
@@ -362,6 +434,7 @@ class Controller:
                     update={"response": None}
                 )
         observation = self.state.observations.pop(key, None)
+        self.state.receptions.pop(key, None)
         if observation is None:
             return
         self.state.boundaries.pop(key, None)
@@ -487,6 +560,7 @@ class Controller:
                 else ("observer" if observation.resolved_unit is not None else None),
             },
         )
+        self._record_reception(key, self.state.observations[key])
         self.state.candidates.pop(key, None)
         self.state.boundaries.pop(key, None)
         if event.unit_ambiguous:
@@ -743,15 +817,10 @@ class Controller:
         # Discarded units cannot replay retired events and manufacture a new baseline.
         prepared.sort(key=lambda item: (-item[1].last_action, item[0]))
         traces = {
-            "message": TraceBaseline(at=boundary, value=self._trace("message", boundary, 150)),
             "compute": TraceBaseline(at=boundary, value=self._trace("compute", boundary, 180)),
             "activity": TraceBaseline(at=boundary, value=self._activity(boundary)),
             "social_context": TraceBaseline(at=boundary, value=self._social_context(boundary)),
             "no_reply": TraceBaseline(at=boundary, value=self._no_reply(boundary)),
-            "ratio_human": TraceBaseline(at=boundary, value=self._ratio_count("human", boundary)),
-            "ratio_message": TraceBaseline(
-                at=boundary, value=self._ratio_count("message", boundary)
-            ),
         }
         self._set(
             belief_baselines=dict(prepared[:64]),
@@ -929,21 +998,10 @@ class Controller:
         }
 
     def opportunity_scores(self, now: float) -> dict[str, float]:
-        """Net value of a finite SELF turn; zero is the no-action alternative."""
+        """Rates for legal non-request SELF opportunities; invitations bypass sampling."""
         raw: dict[str, float] = {}
-        speech = self._trace("message", now, 150)
-        compute = self._trace("compute", now, 180)
-        activity = self._activity(now)
-        own = self._ratio_count("message", now)
-        human = self._ratio_count("human", now)
         context = self._social_context(now)
-        cost = dynamics.shared_cost(
-            speech=speech,
-            compute=compute,
-            activity=activity,
-            own_count=own,
-            human_count=human,
-        )
+        pressure = self._autonomy_pressure(now)
         for key, members in self._eligible_groups(now).items():
             candidate = self.state.candidates[key]
             tau = {"conversation": 90, "recall": 3600, "contact": 1800}[candidate.kind.value]
@@ -985,7 +1043,7 @@ class Controller:
                 for member in members
                 if member.event.kind == "human"
             ]
-            raw[key] = dynamics.source_opportunity(
+            raw[key] = dynamics.source_rate(
                 b,
                 attention=x,
                 familiarity=self._familiarity(
@@ -998,7 +1056,7 @@ class Controller:
                     context, dynamics.aggregate_attention(human_sources, now, tau)
                 ),
                 tendency=self._willingness(now),
-                cost=cost,
+                pressure=pressure,
                 independent=candidate.kind != CandidateKind.CONVERSATION,
             )
         return raw
@@ -1020,27 +1078,6 @@ class Controller:
             and act.choice in {"invite_yuki", "extend_yuki"}
             and floor.choice == "yuki"
         )
-
-    def _ratio_count(self, kind: str, now: float) -> float:
-        key = "ratio_" + kind
-        base = self.state.trace_baselines.get(key)
-        value = base.value * math.exp(-(now - base.at) / 120) if base and now >= base.at else 0.0
-        times = (
-            [e.at for e in self.state.events.values() if e.kind == "human"]
-            if kind == "human"
-            else [
-                record.effect.at
-                for record in self.state.effects.values()
-                if record.effect.kind == "message"
-            ]
-        )
-        return value + sum(
-            math.exp(-(now - at) / 120) for at in times if self.state.replay_after < at <= now
-        )
-
-    def speech_ratio(self, now: float) -> float:
-        own, human = self._ratio_count("message", now), self._ratio_count("human", now)
-        return own / (own + human) if own + human else 0.0
 
     def _trace(self, kind: str, now: float, tau: float) -> float:
         events = sorted(
@@ -1072,6 +1109,102 @@ class Controller:
             and self.state.proposals[report.proposal_id].kind == CandidateKind.INTRINSIC
         )
         return self._leaky_trace("no_reply", events, now, 3600, 0.45)
+
+    def _work_density(self, now: float, tau: float) -> float:
+        return sum(
+            math.exp(-(now - pulse.started_at) / tau)
+            for pulse in self.state.work_pulses.values()
+            if pulse.started_at <= now
+        )
+
+    def _reception(self, now: float) -> float:
+        baseline = self.state.reception_baseline
+        total = (
+            baseline.value * math.exp(-(now - baseline.at) / 21600)
+            if baseline is not None and baseline.at <= now
+            else 0.0
+        ) + sum(
+            record.score * math.exp(-(now - record.at) / 21600)
+            for record in self.state.receptions.values()
+            if record.at <= now
+        )
+        return math.tanh(total)
+
+    def _exposure(self, now: float) -> float:
+        scores = {
+            run_ref: pulse.archived_positive for run_ref, pulse in self.state.work_pulses.items()
+        }
+        for reception in self.state.receptions.values():
+            if reception.at <= now:
+                scores[reception.run_ref] = max(scores.get(reception.run_ref, 0), reception.score)
+        return sum(
+            (1 - max(0.0, scores.get(run_ref, 0)))
+            * (1 - math.exp(-(now - pulse.public_at) / 1200))
+            * math.exp(-(now - pulse.public_at) / 43200)
+            for run_ref, pulse in self.state.work_pulses.items()
+            if pulse.public_at is not None and pulse.public_at <= now
+        )
+
+    def _autonomy_pressure(self, now: float) -> float:
+        return dynamics.autonomy_pressure(
+            tendency=self._willingness(now),
+            activity=self._activity(now),
+            compute=self._trace("compute", now, 180),
+            no_reply=self._no_reply(now),
+            work_fast=self._work_density(now, 1800),
+            work_slow=self._work_density(now, 21600),
+            exposure=self._exposure(now),
+            reception=self._reception(now),
+        )
+
+    def observe_public_anchor(self, run_ref: str, event_id: str, at: float) -> bool:
+        """Bind a confirmed internal outgoing event to its autonomous Work."""
+        if not run_ref or not event_id or not math.isfinite(at) or at < 0:
+            raise ValueError("invalid_outbound_anchor")
+        old = self.state.outbound_anchors.get(event_id)
+        if old is not None:
+            return old == OutboundAnchor(run_ref=run_ref, at=at)
+        self.state.outbound_anchors[event_id] = OutboundAnchor(run_ref=run_ref, at=at)
+        for key, observation in self.state.observations.items():
+            if observation.matching_self_anchor is not None:
+                if observation.matching_self_anchor.event_id == event_id:
+                    self._record_reception(key, observation)
+        return True
+
+    def _record_reception(self, event_id: str, observation: StoredObservation) -> None:
+        anchor = observation.matching_self_anchor
+        event = self.state.events.get(event_id)
+        act = observation.answers.get("interaction_mark")
+        if event is None or event.kind != "human" or not _dimension_known(act):
+            self.state.receptions.pop(event_id, None)
+            return
+        if anchor is None:
+            # Other group talk is weak evidence of being passed over, never proof
+            # of rejection. Its influence decays with distance from the last Work.
+            recent = max(
+                (
+                    (pulse.public_at, run_ref)
+                    for run_ref, pulse in self.state.work_pulses.items()
+                    if pulse.public_at is not None and pulse.public_at < event.at
+                ),
+                default=None,
+            )
+            if recent is None or act.p("other_exchange") == 0:
+                self.state.receptions.pop(event_id, None)
+                return
+            sent_at, run_ref = recent
+            assert sent_at is not None
+            score = -0.02 * act.p("other_exchange") * math.exp(-(event.at - sent_at) / 1800)
+            self.state.receptions[event_id] = Reception(run_ref=run_ref, at=event.at, score=score)
+            return
+        run = self.state.outbound_anchors.get(anchor.event_id)
+        if run is None:
+            self.state.receptions.pop(event_id, None)
+            return
+        positive = act.p("extend_yuki") + act.p("acknowledge") + act.p("invite_yuki")
+        negative = act.p("ask_yuki_stop")
+        score = max(-1.0, min(1.0, positive - negative))
+        self.state.receptions[event_id] = Reception(run_ref=run.run_ref, at=event.at, score=score)
 
     def _leaky_trace(
         self,
@@ -1136,24 +1269,18 @@ class Controller:
         return value * math.exp(-(now - last.at) / 1800)
 
     def intrinsic_opportunity(self, now: float) -> float:
-        reference = max(
-            self.state.self_reference_at if self.state.self_reference_at is not None else now,
-            self.state.last_intrinsic_accepted_at
-            if self.state.last_intrinsic_accepted_at is not None
-            else 0,
-            self.state.last_self_message_at if self.state.last_self_message_at is not None else 0,
-        )
-        return dynamics.intrinsic_opportunity(
-            elapsed=now - reference,
+        return dynamics.intrinsic_rate(
             context=self._social_context(now),
-            tendency=self._willingness(now),
-            activity=self._activity(now),
-            speech=self._trace("message", now, 150),
-            compute=self._trace("compute", now, 180),
-            own_count=self._ratio_count("message", now),
-            human_count=self._ratio_count("human", now),
-            no_reply=self._no_reply(now),
+            pressure=self._autonomy_pressure(now),
         )
+
+    def _sample(self, sequence: int, stream: str) -> float:
+        scope = self.state.scope
+        source = (
+            f"{scope.conversation_id}:{scope.generation}:{self.state.epoch}:{sequence}:{stream}"
+        ).encode()
+        number = int.from_bytes(hashlib.sha256(source).digest()[:8], "big")
+        return (number + 0.5) / 2**64
 
     def advance(
         self,
@@ -1167,10 +1294,8 @@ class Controller:
             raise ValueError("clock_must_be_finite_and_monotonic")
         if controller_epoch != self.state.epoch:
             # Switching invalidates pending proposals, not feedback for accepted runs.
-            self._set(epoch=controller_epoch, pending=None, now=now)
+            self._set(epoch=controller_epoch, pending=None, now=now, last_sample_at=now)
             return None
-        if self.state.self_reference_at is None:
-            self._set(self_reference_at=now)
         elapsed = now - self.state.now
         if elapsed > 5:
             self._set(skipped_seconds=self.state.skipped_seconds + elapsed - 5)
@@ -1178,6 +1303,7 @@ class Controller:
         self._set(now=now)
         self._prune()
         if not can_propose:
+            self._set(last_sample_at=now)
             return None
         groups = self._eligible_groups(now)
         scores = self.opportunity_scores(now)
@@ -1188,6 +1314,7 @@ class Controller:
         ]
         if addressed:
             key = max(addressed, key=lambda item: (scores[item], item))
+            self._set(last_sample_at=now)
         else:
             if intrinsic_allowed and not any(
                 boundary.explicit_stop and boundary.group_wide and boundary.released_by is None
@@ -1195,10 +1322,22 @@ class Controller:
             ):
                 scores["__intrinsic__"] = self.intrinsic_opportunity(now)
             if not scores:
+                self._set(last_sample_at=now)
                 return None
-            key = max(scores, key=lambda item: (scores[item], item))
-            if scores[key] <= 0:
+            total = sum(max(0.0, rate) for rate in scores.values())
+            last_sample = self.state.last_sample_at
+            dt = max(0.0, now - (last_sample if last_sample is not None else now))
+            sequence = self.state.sample_sequence + 1
+            self._set(last_sample_at=now, sample_sequence=sequence)
+            if total <= 0 or self._sample(sequence, "arrival") >= -math.expm1(-total * dt):
                 return None
+            cursor = self._sample(sequence, "selection") * total
+            key = sorted(scores)[-1]
+            for candidate_key, rate in sorted(scores.items()):
+                cursor -= max(0.0, rate)
+                if cursor < 0:
+                    key = candidate_key
+                    break
         if key == "__intrinsic__":
             proposal = Proposal(
                 proposal_id=str(uuid4()),
@@ -1281,6 +1420,35 @@ class Controller:
             if effect.kind == "message":
                 self._set(last_self_message_at=max(self.state.last_self_message_at or 0, effect.at))
         if feedback.outcome not in {"busy", "rejected"}:
+            pulse = self.state.work_pulses.get(feedback.run_ref)
+            computes = [
+                effect.at for effect in incoming_effects.values() if effect.kind == "compute"
+            ]
+            messages = [
+                effect.at for effect in incoming_effects.values() if effect.kind == "message"
+            ]
+            if pulse is None and (computes or messages):
+                pulse = WorkPulse(started_at=min(computes or messages))
+            if pulse is not None:
+                was_public = pulse.public_at is not None
+                if computes and min(computes) < pulse.started_at:
+                    pulse = pulse.model_copy(update={"started_at": min(computes)})
+                if messages:
+                    first_public = min(messages)
+                    pulse = pulse.model_copy(
+                        update={
+                            "public_at": min(pulse.public_at, first_public)
+                            if pulse.public_at is not None
+                            else first_public
+                        }
+                    )
+                self.state.work_pulses[feedback.run_ref] = pulse
+                if messages and not was_public:
+                    for event_id, observation in self.state.observations.items():
+                        event = self.state.events.get(event_id)
+                        if event is not None and event.at > min(messages):
+                            self._record_reception(event_id, observation)
+        if feedback.outcome not in {"busy", "rejected"}:
             # A recovered terminal result also proves this proposal was accepted. The
             # acceptance notification can be missing; its sources must not reopen merely
             # because the final receipt contains no additional considered_refs.
@@ -1291,9 +1459,7 @@ class Controller:
                 )
             if old is None or old.outcome in {"busy", "rejected"}:
                 self._set(last_accepted=max(self.state.last_accepted, feedback.at))
-                if proposal.kind == CandidateKind.INTRINSIC:
-                    self._set(last_intrinsic_accepted_at=feedback.at)
-                else:
+                if proposal.kind != CandidateKind.INTRINSIC:
                     self._consider(proposal, feedback.at)
             if proposal.kind in {CandidateKind.RECALL, CandidateKind.CONTACT}:
                 unit = self._unit_key(proposal.thread, proposal.target_hint)
@@ -1339,6 +1505,47 @@ class Controller:
 
     def _prune(self) -> None:
         cutoff = self.state.now - 600
+        # Twelve slow Work time constants leave less than one part in 100,000.
+        social_cutoff = self.state.now - 3 * 86400
+        for run_ref, pulse in list(self.state.work_pulses.items()):
+            if pulse.started_at < social_cutoff:
+                self.state.work_pulses.pop(run_ref)
+        for event_id, anchor in list(self.state.outbound_anchors.items()):
+            if anchor.at < self.state.now - 3600:
+                self.state.outbound_anchors.pop(event_id)
+        reception_cutoff = self.state.now - 2 * 86400
+        evicted: list[tuple[str, Reception]] = []
+        if len(self.state.receptions) > 2048 or any(
+            record.at < reception_cutoff for record in self.state.receptions.values()
+        ):
+            ordered_receptions = sorted(
+                self.state.receptions.items(), key=lambda item: (item[1].at, item[0])
+            )
+            excess = max(0, len(ordered_receptions) - 2048)
+            evicted = [
+                (event_id, record)
+                for index, (event_id, record) in enumerate(ordered_receptions)
+                if record.at <= self.state.now and (record.at < reception_cutoff or index < excess)
+            ]
+        if evicted:
+            old_base = self.state.reception_baseline
+            boundary_at = max(
+                max(record.at for _, record in evicted),
+                old_base.at if old_base else 0,
+            )
+            value = (
+                old_base.value * math.exp(-(boundary_at - old_base.at) / 21600) if old_base else 0.0
+            ) + sum(
+                record.score * math.exp(-(boundary_at - record.at) / 21600) for _, record in evicted
+            )
+            self._set(reception_baseline=ReceptionBaseline(at=boundary_at, value=value))
+            for event_id, record in evicted:
+                work_pulse = self.state.work_pulses.get(record.run_ref)
+                if work_pulse is not None and record.score > work_pulse.archived_positive:
+                    self.state.work_pulses[record.run_ref] = work_pulse.model_copy(
+                        update={"archived_positive": record.score}
+                    )
+                self.state.receptions.pop(event_id)
         boundary = max(self.state.replay_after, math.nextafter(cutoff, -math.inf))
         retained = sorted(
             (event for event in self.state.events.values() if event.at > boundary),
@@ -1432,7 +1639,7 @@ class Controller:
     def restore(cls, state: State, now: float) -> Controller:
         controller = cls(state.scope, now)
         # No elapsed-time catch-up and no resubmission of an uncertain proposal.
-        controller.state = state.model_copy(update={"now": now}, deep=True)
+        controller.state = state.model_copy(update={"now": now, "last_sample_at": now}, deep=True)
         if controller.state.last_human_at is None:
             last_human = max(
                 (event.at for event in state.events.values() if event.kind == "human"),

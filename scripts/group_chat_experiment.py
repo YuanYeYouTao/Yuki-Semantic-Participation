@@ -1,8 +1,9 @@
 """Build and replay synthetic group-chat workloads from private metadata aggregates.
 
 Build reads only the output of profile_group_metadata.py. Replay calls the real
-ObservationSession/Controller with fixture answers and a recording-only NO_REPLY
-executor. Neither command calls Jev, the Main Agent, a database, or QQ.
+ObservationSession/Controller with fixture answers and a recording-only executor
+that models a charged Work with NO_REPLY or an unanswered send. Neither command
+calls Jev, the Main Agent, a database, or QQ.
 """
 
 from __future__ import annotations
@@ -363,6 +364,7 @@ async def replay_scene(
     *,
     intrinsic_allowed: bool = False,
     horizon: float | None = None,
+    simulated_unanswered_send: bool = False,
 ) -> dict[str, object]:
     records = scene["events"]
     assert isinstance(records, list) and records
@@ -404,15 +406,33 @@ async def replay_scene(
                 ),
             }
         )
-        # Recording-only executor: accepted run with NO_REPLY and no actual message effect.
+        # Recording-only executor: one model request per Work. Optional send
+        # is synthetic, unacknowledged, and never reaches a gateway.
+        effects = [
+            Effect(
+                effect_id=f"fixture-model:{len(proposals)}",
+                kind="compute",
+                at=at,
+            )
+        ]
+        if simulated_unanswered_send:
+            effects.append(
+                Effect(
+                    effect_id=f"fixture-send:{len(proposals)}",
+                    kind="message",
+                    at=at,
+                    actual_targets=("group",),
+                )
+            )
         accepted = controller.observe_run_feedback(
             Feedback(
                 run_ref=f"fixture-run:{len(proposals)}",
                 proposal_id=proposal.proposal_id,
                 sequence=1,
-                outcome="no_reply",
+                outcome="completed" if simulated_unanswered_send else "no_reply",
                 at=at,
                 considered_refs=proposal.sources,
+                effects=tuple(effects),
             )
         )
         if not accepted:

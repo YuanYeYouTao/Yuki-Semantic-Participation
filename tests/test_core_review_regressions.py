@@ -215,7 +215,7 @@ def test_replayed_expression_receipt_does_not_count_as_a_second_expression():
     effect = Effect(effect_id="expression", kind="message", at=105, actual_targets=("A",))
     assert c.observe_run_feedback(feedback(proposal, effects=(effect,)))
     before = c.belief("topic", "A", 106)
-    trace = c._trace("message", 106, 150)
+    exposure = c._exposure(106)
 
     assert c.observe_run_feedback(
         feedback(
@@ -229,7 +229,7 @@ def test_replayed_expression_receipt_does_not_count_as_a_second_expression():
 
     assert len(c.state.effects) == 1
     assert c.belief("topic", "A", 106) == before
-    assert c._trace("message", 106, 150) == trace
+    assert c._exposure(106) == exposure
 
 
 def test_one_proposal_cannot_be_bound_to_another_run():
@@ -590,7 +590,7 @@ def test_identical_effect_ids_within_one_receipt_count_once():
         feedback(proposal, outcome="completed", effects=(message, message)),
     )
     assert len(c.state.effects) == 1
-    assert c._trace("message", 105, 150) == 0.25
+    assert len(c.state.work_pulses) == 1
 
 
 def test_activity_survives_source_capacity_compaction_and_restart():
@@ -610,10 +610,10 @@ def test_activity_survives_source_capacity_compaction_and_restart():
     assert restored._activity(1000) == pytest.approx(expected * math.exp(-900 / 60))
 
 
-@pytest.mark.parametrize("kind, tau", [("message", 150), ("compute", 180)])
-def test_effect_trace_survives_receipt_compaction_and_restart(kind, tau):
+def test_compute_trace_survives_receipt_compaction_and_restart():
     c = controller()
     proposal = propose(c, source())
+    kind, tau = "compute", 180
     effect = Effect(effect_id="cost", kind=kind, at=105, actual_targets=("A",))
     assert c.observe_run_feedback(feedback(proposal, outcome="completed", effects=(effect,)))
     assert c._trace(kind, 105, tau) == 0.25

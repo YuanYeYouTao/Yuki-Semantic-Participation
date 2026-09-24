@@ -7,9 +7,10 @@ import random
 import pytest
 
 from yuki_participation import dynamics
-from yuki_participation.controller import Controller
+from yuki_participation.controller import Controller, State
 from yuki_participation.models import (
     Choice,
+    Effect,
     Feedback,
     HostUnitOption,
     Observation,
@@ -149,14 +150,25 @@ def test_addressed_invitation_can_use_host_new_unit_without_topic_selection():
 
     # Old durable snapshots remain loadable without reviving the removed gate.
     saved = c.state.model_dump(mode="json")
-    saved.pop("self_reference_at")
-    saved.pop("last_intrinsic_accepted_at")
-    saved.update(threshold=0.6, hazard=0.3, intrinsic_base_at=80, last_intrinsic_at=99)
+    saved.update(
+        threshold=0.6,
+        hazard=0.3,
+        intrinsic_base_at=80,
+        last_intrinsic_at=99,
+        self_reference_at=80,
+        last_intrinsic_accepted_at=90,
+    )
+    saved["trace_baselines"] = {
+        "ratio_message": {"at": 100, "value": 0.5},
+        "social_context": {"at": 100, "value": 0.2},
+    }
     restored = State.model_validate(saved)
     assert "threshold" not in restored.model_fields_set
     assert "hazard" not in restored.model_fields_set
-    assert restored.self_reference_at == 80
-    assert restored.last_intrinsic_accepted_at is None
+    assert "self_reference_at" not in restored.model_fields_set
+    assert "last_intrinsic_accepted_at" not in restored.model_fields_set
+    assert "ratio_message" not in restored.trace_baselines
+    assert restored.trace_baselines["social_context"].value == 0.2
 
 
 def test_name_priority_cannot_turn_non_invitation_into_a_proposal():
@@ -165,6 +177,33 @@ def test_name_priority_cannot_turn_non_invitation_into_a_proposal():
     c.observe_committed_event(e)
     assert c.apply_semantic_observation(observation(e, act="other_exchange"))
     assert c.advance(100, controller_epoch=0, host_available=True) is None
+
+
+def test_old_snapshot_reconstructs_only_proven_recent_autonomous_work():
+    c = controller()
+    source = event()
+    assert c.observe_committed_event(source)
+    assert c.apply_semantic_observation(observation(source))
+    proposal = c.advance(105, controller_epoch=0, host_available=True)
+    assert proposal is not None
+    assert c.observe_run_feedback(
+        Feedback(
+            run_ref="real-run",
+            proposal_id=proposal.proposal_id,
+            sequence=1,
+            outcome="completed",
+            at=106,
+            effects=(
+                Effect(effect_id="model", kind="compute", at=105),
+                Effect(effect_id="send", kind="message", at=106),
+            ),
+        )
+    )
+    legacy = c.state.model_dump(mode="json")
+    legacy.pop("work_pulses")
+    restored = State.model_validate(legacy)
+    assert restored.work_pulses["real-run"].started_at == 105
+    assert restored.work_pulses["real-run"].public_at == 106
 
 
 def test_observation_gets_fresh_window_but_cannot_resurrect_stale_invitation():
