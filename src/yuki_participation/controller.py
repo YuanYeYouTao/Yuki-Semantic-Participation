@@ -11,6 +11,7 @@ from uuid import uuid4
 from pydantic import Field, model_validator
 
 from . import dynamics
+from .autonomy_parameters import DEFAULT_AUTONOMY_PARAMETERS, AutonomyParameters
 from .models import (
     CandidateKind,
     Choice,
@@ -265,8 +266,18 @@ class State(Record):
 class Controller:
     """Semantic opportunities with a single Host-owned admission boundary."""
 
-    def __init__(self, scope: Scope, now: float) -> None:
+    def __init__(
+        self,
+        scope: Scope,
+        now: float,
+        parameters: AutonomyParameters = DEFAULT_AUTONOMY_PARAMETERS,
+    ) -> None:
         self.state = State(scope=scope, now=now, last_sample_at=now)
+        self.parameters = parameters
+
+    def set_parameters(self, parameters: AutonomyParameters) -> None:
+        """Apply a validated profile to future sampling without changing persisted receipts."""
+        self.parameters = parameters
 
     def _set(self, **updates: object) -> None:
         self.state = self.state.model_copy(update=updates)
@@ -817,7 +828,10 @@ class Controller:
         # Discarded units cannot replay retired events and manufacture a new baseline.
         prepared.sort(key=lambda item: (-item[1].last_action, item[0]))
         traces = {
-            "compute": TraceBaseline(at=boundary, value=self._trace("compute", boundary, 180)),
+            "compute": TraceBaseline(
+                at=boundary,
+                value=self._trace("compute", boundary, self.parameters.compute_decay_seconds),
+            ),
             "activity": TraceBaseline(at=boundary, value=self._activity(boundary)),
             "social_context": TraceBaseline(at=boundary, value=self._social_context(boundary)),
             "no_reply": TraceBaseline(at=boundary, value=self._no_reply(boundary)),
@@ -1004,7 +1018,11 @@ class Controller:
         pressure = self._autonomy_pressure(now)
         for key, members in self._eligible_groups(now).items():
             candidate = self.state.candidates[key]
-            tau = {"conversation": 90, "recall": 3600, "contact": 1800}[candidate.kind.value]
+            tau = {
+                "conversation": self.parameters.conversation_source_decay_seconds,
+                "recall": self.parameters.recall_source_decay_seconds,
+                "contact": self.parameters.contact_source_decay_seconds,
+            }[candidate.kind.value]
             for member in members:
                 self.state.attentions[member.event.ref.event_id] = dynamics.source_attention(
                     member.value.value,
@@ -1058,6 +1076,7 @@ class Controller:
                 tendency=self._willingness(now),
                 pressure=pressure,
                 independent=candidate.kind != CandidateKind.CONVERSATION,
+                parameters=self.parameters,
             )
         return raw
 
@@ -1085,19 +1104,31 @@ class Controller:
             for e in self.state.effects.values()
             if e.effect.kind == kind and e.effect.at <= now
         )
-        return self._leaky_trace(kind, events, now, tau, 0.25)
+        return self._leaky_trace(kind, events, now, tau, self.parameters.compute_increment)
 
     def _activity(self, now: float) -> float:
         events = sorted(
             e.at for e in self.state.events.values() if e.kind == "human" and e.at <= now
         )
-        return self._leaky_trace("activity", events, now, 60, 0.1)
+        return self._leaky_trace(
+            "activity",
+            events,
+            now,
+            self.parameters.activity_decay_seconds,
+            self.parameters.activity_increment,
+        )
 
     def _social_context(self, now: float) -> float:
         events = sorted(
             e.at for e in self.state.events.values() if e.kind == "human" and e.at <= now
         )
-        return self._leaky_trace("social_context", events, now, 14400, 0.1)
+        return self._leaky_trace(
+            "social_context",
+            events,
+            now,
+            self.parameters.social_context_decay_seconds,
+            self.parameters.social_context_increment,
+        )
 
     def _no_reply(self, now: float) -> float:
         events = sorted(
@@ -1108,7 +1139,13 @@ class Controller:
             and self.state.proposals.get(report.proposal_id) is not None
             and self.state.proposals[report.proposal_id].kind == CandidateKind.INTRINSIC
         )
-        return self._leaky_trace("no_reply", events, now, 3600, 0.45)
+        return self._leaky_trace(
+            "no_reply",
+            events,
+            now,
+            self.parameters.no_reply_decay_seconds,
+            self.parameters.no_reply_increment,
+        )
 
     def _work_density(self, now: float, tau: float) -> float:
         return sum(
@@ -1120,11 +1157,12 @@ class Controller:
     def _reception(self, now: float) -> float:
         baseline = self.state.reception_baseline
         total = (
-            baseline.value * math.exp(-(now - baseline.at) / 21600)
+            baseline.value
+            * math.exp(-(now - baseline.at) / self.parameters.reception_decay_seconds)
             if baseline is not None and baseline.at <= now
             else 0.0
         ) + sum(
-            record.score * math.exp(-(now - record.at) / 21600)
+            record.score * math.exp(-(now - record.at) / self.parameters.reception_decay_seconds)
             for record in self.state.receptions.values()
             if record.at <= now
         )
@@ -1139,8 +1177,8 @@ class Controller:
                 scores[reception.run_ref] = max(scores.get(reception.run_ref, 0), reception.score)
         return sum(
             (1 - max(0.0, scores.get(run_ref, 0)))
-            * (1 - math.exp(-(now - pulse.public_at) / 1200))
-            * math.exp(-(now - pulse.public_at) / 43200)
+            * (1 - math.exp(-(now - pulse.public_at) / self.parameters.exposure_rise_seconds))
+            * math.exp(-(now - pulse.public_at) / self.parameters.exposure_decay_seconds)
             for run_ref, pulse in self.state.work_pulses.items()
             if pulse.public_at is not None and pulse.public_at <= now
         )
@@ -1149,12 +1187,13 @@ class Controller:
         return dynamics.autonomy_pressure(
             tendency=self._willingness(now),
             activity=self._activity(now),
-            compute=self._trace("compute", now, 180),
+            compute=self._trace("compute", now, self.parameters.compute_decay_seconds),
             no_reply=self._no_reply(now),
-            work_fast=self._work_density(now, 1800),
-            work_slow=self._work_density(now, 21600),
+            work_fast=self._work_density(now, self.parameters.work_fast_decay_seconds),
+            work_slow=self._work_density(now, self.parameters.work_slow_decay_seconds),
             exposure=self._exposure(now),
             reception=self._reception(now),
+            parameters=self.parameters,
         )
 
     def observe_public_anchor(self, run_ref: str, event_id: str, at: float) -> bool:
@@ -1194,7 +1233,13 @@ class Controller:
                 return
             sent_at, run_ref = recent
             assert sent_at is not None
-            score = -0.02 * act.p("other_exchange") * math.exp(-(event.at - sent_at) / 1800)
+            score = (
+                -self.parameters.unanchored_reception_weight
+                * act.p("other_exchange")
+                * math.exp(
+                    -(event.at - sent_at) / self.parameters.unanchored_reception_decay_seconds
+                )
+            )
             self.state.receptions[event_id] = Reception(run_ref=run_ref, at=event.at, score=score)
             return
         run = self.state.outbound_anchors.get(anchor.event_id)
@@ -1265,13 +1310,18 @@ class Controller:
         last = self.state.engagement_report
         if last is None or last.at > now or last.delta.engage is None:
             return 0
-        value = {"join": 0.7, "stay": 0, "quiet": -0.7}[last.delta.engage]
-        return value * math.exp(-(now - last.at) / 1800)
+        value = {
+            "join": self.parameters.willingness_magnitude,
+            "stay": 0,
+            "quiet": -self.parameters.willingness_magnitude,
+        }[last.delta.engage]
+        return value * math.exp(-(now - last.at) / self.parameters.willingness_decay_seconds)
 
     def intrinsic_opportunity(self, now: float) -> float:
         return dynamics.intrinsic_rate(
             context=self._social_context(now),
             pressure=self._autonomy_pressure(now),
+            parameters=self.parameters,
         )
 
     def _sample(self, sequence: int, stream: str) -> float:
@@ -1505,8 +1555,16 @@ class Controller:
 
     def _prune(self) -> None:
         cutoff = self.state.now - 600
-        # Twelve slow Work time constants leave less than one part in 100,000.
-        social_cutoff = self.state.now - 3 * 86400
+        # Keep enough pulses for the largest active Work/exposure time constant.
+        social_cutoff = self.state.now - max(
+            3 * 86400,
+            12
+            * max(
+                self.parameters.work_fast_decay_seconds,
+                self.parameters.work_slow_decay_seconds,
+                self.parameters.exposure_decay_seconds,
+            ),
+        )
         for run_ref, pulse in list(self.state.work_pulses.items()):
             if pulse.started_at < social_cutoff:
                 self.state.work_pulses.pop(run_ref)
@@ -1534,9 +1592,14 @@ class Controller:
                 old_base.at if old_base else 0,
             )
             value = (
-                old_base.value * math.exp(-(boundary_at - old_base.at) / 21600) if old_base else 0.0
+                old_base.value
+                * math.exp(-(boundary_at - old_base.at) / self.parameters.reception_decay_seconds)
+                if old_base
+                else 0.0
             ) + sum(
-                record.score * math.exp(-(boundary_at - record.at) / 21600) for _, record in evicted
+                record.score
+                * math.exp(-(boundary_at - record.at) / self.parameters.reception_decay_seconds)
+                for _, record in evicted
             )
             self._set(reception_baseline=ReceptionBaseline(at=boundary_at, value=value))
             for event_id, record in evicted:
@@ -1636,8 +1699,13 @@ class Controller:
                 self._set(pending=None)
 
     @classmethod
-    def restore(cls, state: State, now: float) -> Controller:
-        controller = cls(state.scope, now)
+    def restore(
+        cls,
+        state: State,
+        now: float,
+        parameters: AutonomyParameters = DEFAULT_AUTONOMY_PARAMETERS,
+    ) -> Controller:
+        controller = cls(state.scope, now, parameters)
         # No elapsed-time catch-up and no resubmission of an uncertain proposal.
         controller.state = state.model_copy(update={"now": now, "last_sample_at": now}, deep=True)
         if controller.state.last_human_at is None:

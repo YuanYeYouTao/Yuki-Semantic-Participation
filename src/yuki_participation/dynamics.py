@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import math
 
+from .autonomy_parameters import DEFAULT_AUTONOMY_PARAMETERS, AutonomyParameters
 from .models import Choice
 
 Belief = tuple[float, float, float, float, float]  # O, H, Y, E, C
@@ -114,18 +115,19 @@ def autonomy_pressure(
     work_slow: float,
     exposure: float,
     reception: float,
+    parameters: AutonomyParameters = DEFAULT_AUTONOMY_PARAMETERS,
 ) -> float:
     """Continuous cost of starting another autonomous Work, never a message quota."""
     return (
-        -0.6
-        + 0.8 * tendency
-        - 0.5 * activity
-        - 0.3 * compute
-        - 0.8 * no_reply
-        - 1.8 * work_fast
-        - 0.25 * work_slow
-        - 0.55 * exposure
-        + 0.5 * reception
+        parameters.pressure_bias
+        + parameters.tendency_weight * tendency
+        - parameters.activity_weight * activity
+        - parameters.compute_weight * compute
+        - parameters.no_reply_weight * no_reply
+        - parameters.work_fast_weight * work_fast
+        - parameters.work_slow_weight * work_slow
+        - parameters.exposure_weight * exposure
+        + parameters.reception_weight * reception
     )
 
 
@@ -141,22 +143,27 @@ def source_rate(
     tendency: float,
     pressure: float,
     independent: bool,
+    parameters: AutonomyParameters = DEFAULT_AUTONOMY_PARAMETERS,
 ) -> float:
     social = (
-        participation_factor(tendency) * attention / (1 + 0.15 * familiarity)
-        + 0.35 * b[1]
-        + 0.25 * b[3]
-        - 0.15 * b[2]
-        - 0.70 * b[4]
+        participation_factor(tendency, minimum=parameters.source_participation_minimum)
+        * attention
+        / (1 + parameters.source_familiarity_weight * familiarity)
+        + parameters.source_invitation_weight * b[1]
+        + parameters.source_extension_weight * b[3]
+        - parameters.source_self_weight * b[2]
+        - parameters.source_closed_weight * b[4]
     )
-    opening = (1 - math.exp(-max(0.0, gap) / 4)) * (0.1 + 0.9 * floor)
+    opening = (1 - math.exp(-max(0.0, gap) / parameters.source_opening_seconds)) * (
+        parameters.source_opening_floor + (1 - parameters.source_opening_floor) * floor
+    )
     return (
-        (1 / 45)
+        (1 / parameters.source_interval_seconds)
         * support
         * opening
         * context
-        * sigmoid(pressure + 2 * social)
-        * (0.35 if independent else 1)
+        * sigmoid(pressure + parameters.source_social_weight * social)
+        * (parameters.independent_source_factor if independent else 1)
     )
 
 
@@ -164,6 +171,14 @@ def intrinsic_rate(
     *,
     context: float,
     pressure: float,
+    parameters: AutonomyParameters = DEFAULT_AUTONOMY_PARAMETERS,
 ) -> float:
     # The quiet-group floor is a low rate, not a timer or a permission grant.
-    return (1 / 1800) * (0.03 + 0.97 * max(0.0, min(1.0, context))) * sigmoid(pressure)
+    return (
+        (1 / parameters.intrinsic_interval_seconds)
+        * (
+            parameters.quiet_group_floor
+            + (1 - parameters.quiet_group_floor) * max(0.0, min(1.0, context))
+        )
+        * sigmoid(pressure)
+    )

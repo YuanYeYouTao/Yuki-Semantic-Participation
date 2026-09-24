@@ -96,6 +96,12 @@ async def run(fixture: dict, *, simulated_unanswered_send: bool = False) -> dict
                 Path(__file__).resolve().parents[1] / "src/yuki_participation/dynamics.py"
             ).read_bytes()
         ).hexdigest(),
+        "autonomy_parameters_sha256": hashlib.sha256(
+            (
+                Path(__file__).resolve().parents[1]
+                / "src/yuki_participation/autonomy_parameters.py"
+            ).read_bytes()
+        ).hexdigest(),
         "duration_days": fixture["duration_days"],
         "runtime_seconds": round(time.perf_counter() - started, 2),
         "scenes": scenes,

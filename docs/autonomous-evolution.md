@@ -30,7 +30,7 @@ E(t) = Σ_public_work (1-positive_reception_work)
 R(t) = tanh(Σ_observation reception_score · exp(-(t-t_observation)/21600))
 z = -0.6 + 0.8d - 0.5q - 0.3f - 0.8n - 1.8W_f - 0.25W_s - 0.55E + 0.5R
 C_group = 0.03 + 0.97ℓ
-λ_intrinsic = C_group · sigmoid(z) / 1800
+λ_intrinsic = C_group · sigmoid(z) / 240
 P(本轮机会 | Δt) = 1-exp(-λ_total Δt)
 ```
 
@@ -56,11 +56,21 @@ P(本轮机会 | Δt) = 1-exp(-λ_total Δt)
 每次 Work 启动后 `NO_REPLY` 与公开发出后无人回应，比较自主机会分布；模拟发送不进入
 真实 SocialService，也没有真人接收观测。锚定回复和迟到回执由定向测试覆盖。
 生产观察发现原系数令活跃群在多个已发送 Work 后持续数小时处于极低机会率；
-调整仅放松慢 Work 密度、未获确认回应的暴露和长期沉寂底率。1800 秒快 Work 惩罚、
+调整先放松慢 Work 密度、未获确认回应的暴露和长期沉寂底率，再提高无来源采样基率。
+1800 秒快 Work 惩罚、
 真人活动、`NO_REPLY`、明确停止和 Host 接纳边界保持原义。两条各 30 天轨迹合计：
 `NO_REPLY` 模拟有 1,616 次 proposal／66 次无来源机会／15 次超过六小时静默；
 无人回应的公开发送模拟有 1,568／24／7。旧系数对应为 1,578／34／10 与
-1,548／9／3。新报告见[仅 Work 回执](evidence/autonomous-recovery-tuning-no-reply.json)和
-[模拟公开发送](evidence/autonomous-recovery-tuning-unanswered-send.json)。
+1,548／9／3。该阶段报告见[仅 Work 回执](evidence/autonomous-recovery-tuning-no-reply.json)和
+[模拟公开发送](evidence/autonomous-recovery-tuning-unanswered-send.json)。最终激进参数的
+两条回放见[仅 Work 回执](evidence/autonomous-aggressive-no-reply.json)和
+[模拟公开发送](evidence/autonomous-aggressive-unanswered-send.json)。
+两条轨迹的最终无来源机会分别为 284 次和 101 次，是上一轮 66 次和 24 次的
+4.30 倍与 4.21 倍；超过六小时静默的机会分别为 82 次和 34 次。
 真实群聊效果须与 Host 回执及 Jev 观察另行验证。参数为首轮试验值，
 上线与调整须保留版本和回放证据。
+
+`AutonomyParameters` 收拢非请求自主机会的基率、压力权重、来源率、迹线增量与时标。
+Host 可在每轮采样前换入经过校验的整份参数；配置不写入快照，不重写已接纳的 Work、
+回执或抽样序号。改变时标会从当前保留的迹线和脉冲继续演化，已经按旧时标裁剪的
+远古证据不会重新出现。确定性协议边界、权限和语义观测 Rubric 不属于此配置。

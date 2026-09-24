@@ -1,0 +1,88 @@
+{
+  "kind": "continuous_autonomous_evolution_synthetic_replay",
+  "simulated_outcome": "no_reply",
+  "provenance": {
+    "fixture_sha256": "f2012e53a60fc56b53601f2b4b1e20853fca5f5ae881e25a4d217a6ca36a3230",
+    "rubric_revision": "v6-zh-4",
+    "source_sha256": {
+      "src/yuki_participation/controller.py": "ec0c5e104298c0714dce42f726e95dbde163140ce24cd7f78bb16896da03e0ed",
+      "src/yuki_participation/dynamics.py": "5fbad301415c33811ee94997af28569db7d5fdc4edb4e86351fc334136a1068d",
+      "src/yuki_participation/scheduling.py": "fea70924db07f0589968ed95e7626e8603d153c8d1276f799977d2486271a54d",
+      "src/yuki_participation/session.py": "0c5923ecdb3b4356e1c38ecac60b54f91150a45ffcf64f39c957406666bd673e",
+      "scripts/group_chat_experiment.py": "0f3ad0a49de2b6cd64fb511f5b8d7a5cabb4ec35adaa2ba858f7ae53dc501ccb"
+    }
+  },
+  "replay_script_sha256": "3df217c3dfbd49e18bce5be63b450866b6d341a3b5ec319bf1a1f77643c3a21e",
+  "controller_sha256": "ec0c5e104298c0714dce42f726e95dbde163140ce24cd7f78bb16896da03e0ed",
+  "dynamics_sha256": "5fbad301415c33811ee94997af28569db7d5fdc4edb4e86351fc334136a1068d",
+  "autonomy_parameters_sha256": "67de1a7c2aaea908d634d86ea19e6b3d15da638055cc3c3819ccb6b2980a6e61",
+  "duration_days": 30,
+  "runtime_seconds": 252.62,
+  "scenes": [
+    {
+      "scene": "full_30d_rank_1",
+      "human_messages": 14488,
+      "observer_calls": 4810,
+      "queue_expired": 34,
+      "quiet_windows_over_6h": 18,
+      "max_quiet_seconds": 122412.74,
+      "proposals": 1364,
+      "proposals_by_kind": {
+        "conversation": 1285,
+        "intrinsic": 79
+      },
+      "proposals_by_last_human_gap": {
+        "10m_to_1h": 23,
+        "1h_to_6h": 36,
+        "90s_to_10m": 5,
+        "over_6h": 14,
+        "under_90s": 1286
+      },
+      "max_proposal_idle_seconds": 115207.6,
+      "unobserved_boundary_proposals": 1
+    },
+    {
+      "scene": "full_30d_rank_2",
+      "human_messages": 1464,
+      "observer_calls": 1457,
+      "queue_expired": 7,
+      "quiet_windows_over_6h": 23,
+      "max_quiet_seconds": 269994.12,
+      "proposals": 466,
+      "proposals_by_kind": {
+        "conversation": 261,
+        "intrinsic": 205
+      },
+      "proposals_by_last_human_gap": {
+        "10m_to_1h": 27,
+        "1h_to_6h": 99,
+        "90s_to_10m": 9,
+        "over_6h": 68,
+        "under_90s": 263
+      },
+      "max_proposal_idle_seconds": 259208.0,
+      "unobserved_boundary_proposals": 1
+    }
+  ],
+  "summary": {
+    "human_messages": 15952,
+    "observer_calls": 6267,
+    "proposals": 1830,
+    "intrinsic_proposals": 284,
+    "simulated_model_work_count": 1830,
+    "simulated_public_works": 0,
+    "quiet_windows_over_6h": 41,
+    "over_6h_proposals": 82
+  },
+  "provider_requests": 0,
+  "main_agent_requests": 0,
+  "qq_messages_sent": 0,
+  "limitations": [
+    "All content and semantic labels are synthetic, calibrated only to server aggregates.",
+    "One continuous controller per 30-day scene; no daily state reset.",
+    "Each accepted Work receives one synthetic model-request receipt.",
+    "Optional public sends are synthetic and receive no reply; no QQ delivery occurs.",
+    "Idle periods are checked every 60 virtual seconds, active sources every 2 seconds.",
+    "Host admission, provider behavior, and social acceptability are not measured."
+  ]
+}
