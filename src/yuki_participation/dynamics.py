@@ -97,27 +97,39 @@ def social_context(context: float, human_attention: float) -> float:
     return 1 - (1 - context) * (1 - human_attention)
 
 
-def shared_cost(
+def sigmoid(value: float) -> float:
+    if value >= 0:
+        return 1 / (1 + math.exp(-value))
+    exponent = math.exp(value)
+    return exponent / (1 + exponent)
+
+
+def autonomy_pressure(
     *,
-    speech: float,
-    compute: float,
+    tendency: float,
     activity: float,
-    own_count: float,
-    human_count: float,
+    compute: float,
+    no_reply: float,
+    work_fast: float,
+    work_slow: float,
+    exposure: float,
+    reception: float,
 ) -> float:
-    total = own_count + human_count
-    ratio = own_count / total if total else 0.0
-    # A lone ancient self message must not leave a permanent ratio penalty.
+    """Continuous cost of starting another autonomous Work, never a message quota."""
     return (
-        0.08 * speech
-        + 0.04 * compute
-        + 0.02 * activity
-        + 0.1 * min(1.0, total) * max(0.0, ratio - 0.35)
-        + 0.025
+        -0.6
+        + 0.8 * tendency
+        - 0.5 * activity
+        - 0.3 * compute
+        - 0.8 * no_reply
+        - 1.8 * work_fast
+        - 0.7 * work_slow
+        - 1.4 * exposure
+        + 0.5 * reception
     )
 
 
-def source_opportunity(
+def source_rate(
     b: Belief,
     *,
     attention: float,
@@ -127,7 +139,7 @@ def source_opportunity(
     gap: float,
     context: float,
     tendency: float,
-    cost: float,
+    pressure: float,
     independent: bool,
 ) -> float:
     social = (
@@ -138,30 +150,20 @@ def source_opportunity(
         - 0.70 * b[4]
     )
     opening = (1 - math.exp(-max(0.0, gap) / 4)) * (0.1 + 0.9 * floor)
-    return support * opening * context * max(0.0, social) - cost - (0.05 if independent else 0)
-
-
-def intrinsic_opportunity(
-    *,
-    elapsed: float,
-    context: float,
-    tendency: float,
-    activity: float,
-    speech: float,
-    compute: float,
-    own_count: float,
-    human_count: float,
-    no_reply: float,
-) -> float:
-    recovery = 1 - math.exp(-max(0.0, elapsed) / 1800)
-    total = own_count + human_count
-    ratio = own_count / total if total else 0.0
-    share_cost = 0.1 * min(1.0, total) * max(0.0, ratio - 0.35)
     return (
-        0.55 * participation_factor(tendency) * recovery * context * (1 - activity) * (1 - speech)
-        - 0.04 * compute
-        - share_cost
-        - 0.025
-        - 0.025
-        - 0.08 * no_reply
+        (1 / 45)
+        * support
+        * opening
+        * context
+        * sigmoid(pressure + 2 * social)
+        * (0.35 if independent else 1)
     )
+
+
+def intrinsic_rate(
+    *,
+    context: float,
+    pressure: float,
+) -> float:
+    # The quiet-group floor is a low rate, not a timer or a permission grant.
+    return (1 / 1800) * (0.02 + 0.98 * max(0.0, min(1.0, context))) * sigmoid(pressure)

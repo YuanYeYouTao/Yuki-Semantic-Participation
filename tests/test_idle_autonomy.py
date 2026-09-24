@@ -1,9 +1,11 @@
 """Synthetic invariants for intrinsic opportunities and implicit SELF continuation."""
 
+import pytest
 from test_core_review_regressions import controller, feedback, observation, source
 from test_v6_completion import score_seed
 
-from yuki_participation.models import CandidateKind, Choice, HostUnitOption
+from yuki_participation.controller import Reception, WorkPulse
+from yuki_participation.models import CandidateKind, Choice, Effect, HostUnitOption
 from yuki_participation.scheduling import ObservationQueue
 
 
@@ -25,10 +27,18 @@ def test_intrinsic_opportunity_needs_no_semantic_source_and_does_not_repeat_imme
     assert proposal is not None
     assert proposal.kind is CandidateKind.INTRINSIC
     assert proposal.sources == () and proposal.support is None
-    assert c.observe_run_feedback(feedback(proposal, outcome="no_reply", at=at + 1))
-    assert c.state.last_intrinsic_accepted_at == at + 1
+    before = c.intrinsic_opportunity(at + 1)
+    assert c.observe_run_feedback(
+        feedback(
+            proposal,
+            outcome="no_reply",
+            at=at + 1,
+            effects=(Effect(effect_id="model-call", kind="compute", at=at + 1),),
+        )
+    )
     assert c._no_reply(at + 1) > 0
-    assert c.intrinsic_opportunity(at + 2) < 0
+    assert 0 < c.intrinsic_opportunity(at + 2) < before
+    assert c._work_density(at + 2, 1800) > 0
     assert (
         c.advance(at + 2, controller_epoch=0, host_available=True, intrinsic_allowed=True) is None
     )
@@ -40,11 +50,10 @@ def test_group_context_decays_without_new_human_input_and_has_no_idle_timer_gate
     assert c._social_context(500) > c._social_context(2000) > c._social_context(86400)
     assert c.intrinsic_opportunity(2000) > 0
     assert c.intrinsic_opportunity(7200) > 0
-    assert c.intrinsic_opportunity(86400) < 0
-    assert c.advance(86400, controller_epoch=0, host_available=True, intrinsic_allowed=True) is None
+    assert 0 < c.intrinsic_opportunity(86400) < c.intrinsic_opportunity(7200)
 
 
-def test_real_self_speech_resets_smooth_recovery_and_survives_event_pruning():
+def test_real_self_speech_does_not_count_as_another_autonomous_work():
     c = controller()
     _prime_group(c)
     before = c.intrinsic_opportunity(1900)
@@ -52,10 +61,10 @@ def test_real_self_speech_resets_smooth_recovery_and_survives_event_pruning():
     c.advance(1900, controller_epoch=0, host_available=False)
     own = source("self-speech", at=1900, kind="self", target="group")
     assert c.observe_committed_event(own)
-    assert c.intrinsic_opportunity(1900) < 0
+    assert c.intrinsic_opportunity(1900) == before
     c.advance(2600, controller_epoch=0, host_available=False)
     assert own.ref.event_id not in c.state.events
-    assert c.intrinsic_opportunity(2600) < before
+    assert c._work_density(2600, 1800) == 0
 
 
 def test_memory_seed_alone_does_not_revive_a_long_dormant_group():
@@ -64,8 +73,7 @@ def test_memory_seed_alone_does_not_revive_a_long_dormant_group():
     c.advance(86400, controller_epoch=0, host_available=False)
     seed = score_seed(c, "fresh-scan-of-old-memory", 86400, kind=CandidateKind.RECALL)
     assert seed.ref.event_id in c.state.candidates
-    assert c.opportunity_scores(86405)[seed.ref.event_id] < 0
-    assert c.advance(86405, controller_epoch=0, host_available=True, intrinsic_allowed=True) is None
+    assert 0 < c.opportunity_scores(86405)[seed.ref.event_id] < 0.0001
 
 
 def test_no_reply_feedback_trace_survives_compaction_and_restore():
@@ -84,6 +92,142 @@ def test_no_reply_feedback_trace_survives_compaction_and_restore():
     assert retained > 0
     restored = type(c).restore(c.state, at + 900)
     assert restored._no_reply(at + 900) < retained
+
+
+def test_one_autonomous_work_has_the_same_future_rate_with_one_or_many_messages():
+    c = controller()
+    _prime_group(c)
+    proposal = None
+    for at in range(140, 4002, 2):
+        proposal = c.advance(at, controller_epoch=0, host_available=True, intrinsic_allowed=True)
+        if proposal is not None:
+            break
+    assert proposal is not None
+    single = type(c).restore(c.state, at)
+    many = type(c).restore(c.state, at)
+    compute = Effect(effect_id="one-model-call", kind="compute", at=at + 1)
+    first = Effect(effect_id="first", kind="message", at=at + 1, actual_targets=("group",))
+    assert single.observe_run_feedback(
+        feedback(proposal, outcome="completed", at=at + 1, effects=(compute, first))
+    )
+    assert many.observe_run_feedback(
+        feedback(
+            proposal,
+            outcome="completed",
+            at=at + 1,
+            effects=(
+                compute,
+                first,
+                Effect(effect_id="second", kind="message", at=at + 2, actual_targets=("group",)),
+                Effect(effect_id="third", kind="message", at=at + 3, actual_targets=("group",)),
+            ),
+        )
+    )
+    assert single._work_density(at + 100, 1800) == many._work_density(at + 100, 1800)
+    assert single._exposure(at + 100) == many._exposure(at + 100)
+    assert single.intrinsic_opportunity(at + 100) == many.intrinsic_opportunity(at + 100)
+
+
+def test_real_anchored_reply_reduces_unanswered_exposure():
+    c = controller()
+    _prime_group(c)
+    proposal = None
+    for at in range(140, 4002, 2):
+        proposal = c.advance(at, controller_epoch=0, host_available=True, intrinsic_allowed=True)
+        if proposal is not None:
+            break
+    assert proposal is not None
+    assert c.observe_run_feedback(
+        feedback(
+            proposal,
+            outcome="completed",
+            at=at + 1,
+            effects=(
+                Effect(effect_id="model", kind="compute", at=at + 1),
+                Effect(effect_id="out", kind="message", at=at + 2, actual_targets=("group",)),
+            ),
+        )
+    )
+    outbound = source(
+        "outbound-work", at=at + 2, kind="self", thread=proposal.thread, target="group"
+    )
+    assert c.observe_committed_event(outbound)
+    assert c.observe_public_anchor("run", outbound.ref.event_id, at + 2)
+    assert outbound.ref.event_id in c.state.outbound_anchors
+    exposed = c._exposure(at + 100)
+    reply = source("reply-to-work", at=at + 20, thread=proposal.thread, reply_to=outbound.ref)
+    assert c.observe_committed_event(reply)
+    assert c.apply_semantic_observation(observation(reply, act="extend_yuki", context=(outbound,)))
+    assert c.state.observations[reply.ref.event_id].matching_self_anchor == outbound.ref
+    assert outbound.ref.event_id in c.state.outbound_anchors
+    assert c.state.receptions[reply.ref.event_id].score > 0
+    assert c._exposure(at + 100) < exposed
+    assert c._reception(at + 100) > 0
+
+
+def test_unrelated_group_talk_is_only_weak_negative_reception_evidence():
+    c = controller()
+    _prime_group(c)
+    proposal = None
+    for at in range(140, 4002, 2):
+        proposal = c.advance(at, controller_epoch=0, host_available=True, intrinsic_allowed=True)
+        if proposal is not None:
+            break
+    assert proposal is not None
+    assert c.observe_run_feedback(
+        feedback(
+            proposal,
+            outcome="completed",
+            at=at + 1,
+            effects=(Effect(effect_id="sent", kind="message", at=at + 1),),
+        )
+    )
+    unrelated = source("other-people", at=at + 30)
+    assert c.observe_committed_event(unrelated)
+    assert c.apply_semantic_observation(observation(unrelated, act="other_exchange"))
+    assert -0.03 < c._reception(at + 31) < 0
+    assert c._exposure(at + 31) > 0
+
+
+def test_reception_compaction_preserves_rate_without_unbounded_snapshot_growth():
+    c = controller()
+    c.state.work_pulses["run"] = WorkPulse(started_at=9000, public_at=9000)
+    for index in range(3000):
+        c.state.receptions[f"reply-{index}"] = Reception(
+            run_ref="run", at=9000 + index / 3, score=0.5 if index == 0 else -0.001
+        )
+    before_r, before_e = c._reception(10000), c._exposure(10000)
+    c.advance(10000, controller_epoch=0, host_available=False)
+    assert len(c.state.receptions) <= 2048
+    assert c._reception(10000) == pytest.approx(before_r)
+    assert c._exposure(10000) == pytest.approx(before_e)
+    reloaded = type(c.state).model_validate_json(c.state.model_dump_json())
+    restored = type(c).restore(reloaded, 10000)
+    assert restored._reception(10000) == pytest.approx(before_r)
+    assert restored._exposure(10000) == pytest.approx(before_e)
+
+
+def test_unavailable_time_and_restart_do_not_accumulate_unspent_opportunities():
+    c = controller()
+    c.advance(10000, controller_epoch=0, host_available=False)
+    restored = type(c).restore(c.state, 100000)
+    assert restored.state.last_sample_at == 100000
+    restored._sample = lambda _sequence, _stream: 0.01
+    assert (
+        restored.advance(100000.1, controller_epoch=0, host_available=True, intrinsic_allowed=True)
+        is None
+    )
+
+
+def test_real_direct_invitation_bypasses_autonomous_work_density():
+    c = controller()
+    for index in range(20):
+        c.state.work_pulses[f"previous-{index}"] = WorkPulse(started_at=100)
+    invitation = source("direct-invitation", at=101)
+    assert c.observe_committed_event(invitation)
+    assert c.apply_semantic_observation(observation(invitation, act="invite_yuki"))
+    proposal = c.advance(105, controller_epoch=0, host_available=True, intrinsic_allowed=True)
+    assert proposal is not None and proposal.sources == (invitation.ref,)
 
 
 def test_semantic_selection_of_real_self_anchor_recognizes_unquoted_continuation():

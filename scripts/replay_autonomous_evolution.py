@@ -1,7 +1,8 @@
 """Continuous 30-day replay of the synthetic, server-calibrated group workload.
 
-This uses fixture semantics and a recording NO_REPLY sink. It never calls a
-provider, the Yuki Host, or a QQ gateway.
+This uses fixture semantics and records a synthetic model request per Work.
+The optional public send remains unanswered. It never calls a provider,
+the Yuki Host, or a QQ gateway.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ from pathlib import Path
 from scripts.group_chat_experiment import provenance, replay_scene
 
 
-async def run(fixture: dict) -> dict:
+async def run(fixture: dict, *, simulated_unanswered_send: bool = False) -> dict:
     started = time.perf_counter()
     scenes = []
     horizon = float(fixture["duration_days"]) * 86400
@@ -29,6 +30,7 @@ async def run(fixture: dict) -> dict:
             int(fixture["seed"]),
             intrinsic_allowed=True,
             horizon=horizon,
+            simulated_unanswered_send=simulated_unanswered_send,
         )
         human_times = [float(row["at"]) for row in scene["events"] if row["kind"] == "human"]
         quiet_gaps = [
@@ -81,8 +83,19 @@ async def run(fixture: dict) -> dict:
         )
     return {
         "kind": "continuous_autonomous_evolution_synthetic_replay",
+        "simulated_outcome": "unanswered_send" if simulated_unanswered_send else "no_reply",
         "provenance": provenance(fixture),
         "replay_script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
+        "controller_sha256": hashlib.sha256(
+            (
+                Path(__file__).resolve().parents[1] / "src/yuki_participation/controller.py"
+            ).read_bytes()
+        ).hexdigest(),
+        "dynamics_sha256": hashlib.sha256(
+            (
+                Path(__file__).resolve().parents[1] / "src/yuki_participation/dynamics.py"
+            ).read_bytes()
+        ).hexdigest(),
         "duration_days": fixture["duration_days"],
         "runtime_seconds": round(time.perf_counter() - started, 2),
         "scenes": scenes,
@@ -92,6 +105,10 @@ async def run(fixture: dict) -> dict:
             "proposals": sum(row["proposals"] for row in scenes),
             "intrinsic_proposals": sum(
                 row["proposals_by_kind"].get("intrinsic", 0) for row in scenes
+            ),
+            "simulated_model_work_count": sum(row["proposals"] for row in scenes),
+            "simulated_public_works": (
+                sum(row["proposals"] for row in scenes) if simulated_unanswered_send else 0
             ),
             "quiet_windows_over_6h": sum(row["quiet_windows_over_6h"] for row in scenes),
             "over_6h_proposals": sum(
@@ -104,7 +121,8 @@ async def run(fixture: dict) -> dict:
         "limitations": [
             "All content and semantic labels are synthetic, calibrated only to server aggregates.",
             "One continuous controller per 30-day scene; no daily state reset.",
-            "A recording NO_REPLY sink consumes proposals without actual Yuki speech.",
+            "Each accepted Work receives one synthetic model-request receipt.",
+            "Optional public sends are synthetic and receive no reply; no QQ delivery occurs.",
             "Idle periods are checked every 60 virtual seconds, active sources every 2 seconds.",
             "Host admission, provider behavior, and social acceptability are not measured.",
         ],
@@ -115,10 +133,11 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--fixture", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--simulated-unanswered-send", action="store_true")
     args = parser.parse_args()
     with gzip.open(args.fixture, "rt", encoding="utf-8") as source:
         fixture = json.load(source)
-    report = asyncio.run(run(fixture))
+    report = asyncio.run(run(fixture, simulated_unanswered_send=args.simulated_unanswered_send))
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

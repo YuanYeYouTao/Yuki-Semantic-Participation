@@ -31,6 +31,14 @@ def prime_recent_group_context(c):
         assert c.observe_committed_event(source(f"context-{index}", at=70 + index))
 
 
+def admit_seed(c, at=105):
+    # These tests exercise source/feedback behavior, not the stochastic arrival clock.
+    c._sample = lambda _sequence, _stream: 0.0
+    proposal = c.advance(at, controller_epoch=0, host_available=True)
+    assert proposal is not None
+    return proposal
+
+
 def test_repeated_human_turn_is_distinct_but_repeated_seed_is_deduplicated():
     c = controller()
     original = source("first", text="Yuki，来看看")
@@ -82,26 +90,17 @@ def test_multi_source_attention_uses_bounded_product_stimulus():
     assert 0 <= result <= 1
 
 
-def test_speech_ratio_only_penalizes_excess_and_survives_compaction():
+def test_message_count_does_not_create_extra_autonomous_work():
     c = controller()
     proposal = propose(c, source())
     effects = tuple(
         Effect(effect_id=f"m{i}", kind="message", at=105, actual_targets=("A",)) for i in range(10)
     )
     c.observe_run_feedback(feedback(proposal, effects=effects))
-    expected = 10 / (10 + math.exp(-5 / 120))
-    assert c.speech_ratio(105) == pytest.approx(expected)
+    assert len(c.state.work_pulses) == 1
+    assert c._work_density(105, 1800) == 1
     c.advance(800, controller_epoch=0, host_available=False)
-    assert c.speech_ratio(800) == pytest.approx(expected)
-    low = dynamics.shared_cost(speech=0, compute=0, activity=0, own_count=0.2, human_count=0.8)
-    none = dynamics.shared_cost(speech=0, compute=0, activity=0, own_count=0, human_count=0)
-    high = dynamics.shared_cost(speech=0, compute=0, activity=0, own_count=0.9, human_count=0.1)
-    assert low == none
-    assert high > low
-    ancient = dynamics.shared_cost(
-        speech=0, compute=0, activity=0, own_count=0.0009, human_count=0.0001
-    )
-    assert none < ancient < high
+    assert c._work_density(800, 1800) == pytest.approx(math.exp(-695 / 1800))
 
 
 @pytest.mark.parametrize("kind", [CandidateKind.CONTACT, CandidateKind.RECALL])
@@ -109,8 +108,7 @@ def test_unanswered_seed_requires_substantial_new_reason_or_observed_response(ki
     c = controller()
     prime_recent_group_context(c)
     original = score_seed(c, "seed", 100, kind=kind)
-    proposal = c.advance(105, controller_epoch=0, host_available=True)
-    assert proposal is not None
+    proposal = admit_seed(c)
     c.observe_run_feedback(
         feedback(
             proposal,
@@ -137,8 +135,7 @@ def test_accepted_seed_updates_bounded_familiarity_across_restart():
     prime_recent_group_context(c)
     score_seed(c, "seed", 100)
     assert c._familiarity(CandidateKind.CONTACT, "topic", "A", 105) == 0
-    proposal = c.advance(105, controller_epoch=0, host_available=True)
-    assert proposal is not None
+    proposal = admit_seed(c)
     assert c.observe_run_feedback(feedback(proposal, outcome="accepted", at=105))
     assert c._familiarity(CandidateKind.CONTACT, "topic", "A", 105) == pytest.approx(0.45)
     restored = Controller.restore(c.state, 705)
@@ -171,7 +168,7 @@ def test_late_send_receipt_recognizes_already_observed_response_after_restart():
     c = controller()
     prime_recent_group_context(c)
     score_seed(c, "contact", 100)
-    proposal = c.advance(105, controller_epoch=0, host_available=True)
+    proposal = admit_seed(c)
     assert c.observe_run_feedback(feedback(proposal))
     reply = source("reply", at=110)
     assert c.observe_committed_event(reply)
@@ -212,7 +209,7 @@ def test_late_seed_feedback_claims_proposed_content_not_new_revision():
     prime_recent_group_context(c)
     original = score_seed(c, "seed", 100)
     original_fingerprint = c.state.content_keys[original.ref.event_id]
-    proposal = c.advance(105, controller_epoch=0, host_available=True)
+    proposal = admit_seed(c)
     revised = original.model_copy(
         update={
             "ref": original.ref.model_copy(update={"revision": 2}),
@@ -277,18 +274,17 @@ def test_host_effect_updates_scope_traces_without_fabricating_a_semantic_target(
     c = controller()
     ledger = source("self-ledger", kind="self")
     assert c.observe_committed_event(ledger)
-    assert c.speech_ratio(105) == 0
+    assert c._work_density(105, 1800) == 0
     effect = Effect(effect_id="logical-send", kind="message", at=105, actual_targets=("group",))
     assert c.observe_committed_effect("ordinary-run", effect)
-    assert c.speech_ratio(105) == 1
-    assert c._trace("message", 105, 150) == 0.25
+    assert c._work_density(105, 1800) == 0
     assert c.belief("topic", "A", 105) == dynamics.IDLE
     assert c.observe_committed_effect("ordinary-run", effect)
     assert not c.observe_committed_effect("another-run", effect)
     assert not c.observe_committed_effect("ordinary-run", effect.model_copy(update={"at": 106}))
-    assert c._trace("message", 105, 150) == 0.25
+    assert c._work_density(105, 1800) == 0
     restored = Controller.restore(c.state, 800)
-    assert restored._trace("message", 800, 150) == pytest.approx(0.25 * math.exp(-695 / 150))
+    assert restored._work_density(800, 1800) == 0
     assert not restored.state.proposals
 
 
@@ -300,7 +296,7 @@ def test_host_receipt_then_semantic_feedback_share_exactly_one_actual_effect():
     assert c.observe_run_feedback(feedback(proposal, outcome="completed", effects=(effect,)))
     assert c.observe_committed_effect("run", effect)
     assert len(c.state.effects) == 1
-    assert c._trace("message", 105, 150) == 0.25
+    assert len(c.state.work_pulses) == 1
 
 
 def test_legacy_ambiguous_source_keeps_all_shared_boundaries_without_observer():
