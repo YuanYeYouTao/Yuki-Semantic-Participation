@@ -183,6 +183,7 @@ class State(Record):
     attentions: dict[str, float] = Field(default_factory=dict)
     last_accepted: float = -1e9
     last_human_at: float | None = None
+    human_activity_initialized: bool = False
     last_self_message_at: float | None = None
     skipped_seconds: float = 0
     capacity_blocked: bool = False
@@ -225,7 +226,7 @@ class State(Record):
             migrated["trace_baselines"] = {
                 key: item
                 for key, item in traces.items()
-                if key in {"compute", "activity", "social_context", "no_reply"}
+                if key in {"compute", "activity", "social_context", "no_reply", "human_activity"}
             }
         if "work_pulses" not in migrated:
             # Only currently retained, proposal-bound real effects can seed the
@@ -379,6 +380,9 @@ class Controller:
             # social-context contribution rather than retaining a ghost motive.
             baselines = dict(self.state.trace_baselines)
             baselines["social_context"] = TraceBaseline(
+                at=max(0.0, self.state.replay_after), value=0.0
+            )
+            baselines["human_activity"] = TraceBaseline(
                 at=max(0.0, self.state.replay_after), value=0.0
             )
             self._set(trace_baselines=baselines)
@@ -836,6 +840,12 @@ class Controller:
             "social_context": TraceBaseline(at=boundary, value=self._social_context(boundary)),
             "no_reply": TraceBaseline(at=boundary, value=self._no_reply(boundary)),
         }
+        old_human_activity = self.state.trace_baselines.get("human_activity")
+        traces["human_activity"] = (
+            old_human_activity
+            if old_human_activity is not None and boundary < old_human_activity.at
+            else TraceBaseline(at=boundary, value=self._human_activity(boundary))
+        )
         self._set(
             belief_baselines=dict(prepared[:64]),
             baseline_evictions=self.state.baseline_evictions + max(0, len(prepared) - 64),
@@ -1130,6 +1140,63 @@ class Controller:
             self.parameters.social_context_increment,
         )
 
+    def _human_activity(self, now: float) -> float:
+        """Linear 48-hour human-event trace, independent of short source context."""
+        baseline = self.state.trace_baselines.get("human_activity")
+        if baseline is not None and now < baseline.at:
+            return 0.0
+        tau = self.parameters.human_activity_decay_seconds
+        value = baseline.value * math.exp(-(now - baseline.at) / tau) if baseline else 0.0
+        return value + sum(
+            math.exp(-(now - event.at) / tau)
+            for event in self.state.events.values()
+            if event.kind == "human"
+            and event.at <= now
+            and event.at > (baseline.at if baseline else self.state.replay_after)
+        )
+
+    def initialize_human_activity(
+        self,
+        at: float,
+        historical_buckets: tuple[tuple[float, int], ...],
+        last_historical_human_at: float | None,
+    ) -> None:
+        """Seed a legacy snapshot from bounded Host aggregates once."""
+        if self.state.human_activity_initialized:
+            return
+        if not math.isfinite(at) or at < max(0.0, self.state.replay_after):
+            raise ValueError("human_activity_boundary_invalid")
+        if any(
+            not math.isfinite(event_at) or event_at < 0 or event_at > at or count <= 0
+            for event_at, count in historical_buckets
+        ) or (
+            last_historical_human_at is not None
+            and (
+                not math.isfinite(last_historical_human_at)
+                or last_historical_human_at < 0
+                or last_historical_human_at > at
+            )
+        ):
+            raise ValueError("human_activity_history_invalid")
+        tau = self.parameters.human_activity_decay_seconds
+        value = sum(
+            count * math.exp(-(at - event_at) / tau) for event_at, count in historical_buckets
+        )
+        baselines = dict(self.state.trace_baselines)
+        baselines["human_activity"] = TraceBaseline(at=at, value=value)
+        self._set(
+            trace_baselines=baselines,
+            human_activity_initialized=True,
+            last_human_at=max(
+                (
+                    value
+                    for value in (self.state.last_human_at, last_historical_human_at)
+                    if value is not None
+                ),
+                default=None,
+            ),
+        )
+
     def _no_reply(self, now: float) -> float:
         events = sorted(
             report.at
@@ -1319,7 +1386,12 @@ class Controller:
 
     def intrinsic_opportunity(self, now: float) -> float:
         return dynamics.intrinsic_rate(
-            context=self._social_context(now),
+            human_activity=self._human_activity(now),
+            seconds_since_human=(
+                max(0.0, now - self.state.last_human_at)
+                if self.state.last_human_at is not None
+                else None
+            ),
             pressure=self._autonomy_pressure(now),
             parameters=self.parameters,
         )
