@@ -169,16 +169,14 @@ def source_rate(
 
 def intrinsic_rate(
     *,
-    context: float,
+    human_activity: float,
+    seconds_since_human: float | None,
     pressure: float,
     parameters: AutonomyParameters = DEFAULT_AUTONOMY_PARAMETERS,
 ) -> float:
-    # The quiet-group floor is a low rate, not a timer or a permission grant.
-    return (
-        (1 / parameters.intrinsic_interval_seconds)
-        * (
-            parameters.quiet_group_floor
-            + (1 - parameters.quiet_group_floor) * max(0.0, min(1.0, context))
-        )
-        * sigmoid(pressure)
+    gap = math.inf if seconds_since_human is None else max(0.0, seconds_since_human)
+    activity = human_activity / (human_activity + parameters.human_activity_half_saturation)
+    silence = (-math.expm1(-gap / parameters.silence_rise_seconds)) * math.exp(
+        -gap / parameters.silence_decay_seconds
     )
+    return (1 / parameters.intrinsic_interval_seconds) * activity * silence * sigmoid(pressure)

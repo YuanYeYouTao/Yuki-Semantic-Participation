@@ -50,7 +50,7 @@ Yuki 侧权限、迁移和配置详见其 `docs/architecture/semantic-participat
 - 局部重算窗最多 10 分钟；容量裁剪可能缩短窗口，数值基线单独保存。
 - 控制器快照默认每 scope 1 MiB、总计 16 MiB，超限显式报告；不等于主 Agent 的历史预算。
 - Yuki seed 每次扫描有界，按 `(max(updated_at, valid_from), id)` 持久前行；空的无合法 lineage 页也推进，新增 evidence 更新 fact 变更时间。
-- 默认 κ=0。旧净机会值中的发言比例、短时发言惩罚和自身恢复项退出决策；非请求式 proposal 由[连续概率模型](autonomous-evolution.md)决定。长久沉寂时机会率很低但非零；实际自主 Work 与接收反馈影响后续调用频率，单次 Work 没有消息数配额。旧参数与回放留在[群聊负载实验](group-chat-experiment.md)作历史对照。
+- 默认 κ=0。旧净机会值中的发言比例、短时发言惩罚和自身恢复项退出决策；非请求式 proposal 由[连续概率模型](autonomous-evolution.md)决定。无来源机会依赖真人活动，活跃群冷场时可以出现，长期沉寂时趋近于零；实际自主 Work 与接收反馈影响后续调用频率，单次 Work 没有消息数配额。旧参数与回放留在[群聊负载实验](group-chat-experiment.md)作历史对照。
 
 ## 定向工程验证
 

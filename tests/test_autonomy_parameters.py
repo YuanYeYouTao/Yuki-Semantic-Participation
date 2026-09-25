@@ -10,10 +10,11 @@ from yuki_participation.models import Scope
 
 def test_live_profile_changes_intrinsic_rate_without_mutating_snapshot() -> None:
     controller = Controller(Scope(conversation_id="group", generation=1), 100)
+    controller.initialize_human_activity(100, ((90.0, 1),), 90.0)
     before_state = controller.state.model_dump_json()
     before_rate = controller.intrinsic_opportunity(100)
 
-    controller.set_parameters(AutonomyParameters(intrinsic_interval_seconds=120))
+    controller.set_parameters(AutonomyParameters(intrinsic_interval_seconds=7200))
 
     assert controller.intrinsic_opportunity(100) == pytest.approx(before_rate * 2)
     assert controller.state.model_dump_json() == before_state
@@ -23,7 +24,8 @@ def test_live_profile_changes_intrinsic_rate_without_mutating_snapshot() -> None
     "payload",
     [
         {"intrinsic_interval_seconds": 0},
-        {"quiet_group_floor": 2},
+        {"quiet_group_floor": 0.03},
+        {"human_activity_half_saturation": 0},
         {"source_opening_seconds": -1},
         {"unknown_parameter": 1},
     ],
