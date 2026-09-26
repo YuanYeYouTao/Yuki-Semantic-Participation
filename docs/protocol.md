@@ -54,9 +54,14 @@ Host 再核验 scope/generation、owner/epoch、来源版本与可见性、全�
 慢观测不占全局接纳锁；原子写事务不等待 Jev、主模型、网关，也不扫描历史。
 同一 proposal 和已消费来源由持久记录防重，busy 不冒充已消费。
 
-Yuki 的唯一 selector 覆盖 legacy 和 semantic。缺 key、关闭 semantic 或持续 Provider 故障时可选 legacy，
-master off 始终是 off。合法 unknown 不触发 fallback，已进入 degraded 后不能因队列过期自行恢复；
-配置可用时仍可进行稀疏健康观测，真实成功才清除故障状态。当前没有生产 shadow 模式配置。
+Yuki 的唯一 selector 覆盖 legacy 和 semantic。master off 始终是 off；显式关闭 semantic
+才使用 legacy。Jev 缺 key 或观测故障不改变 proposer，真实语义反馈及活动继续演化，
+不伪造新观测。degraded 仅供诊断，真实成功才清除；原队列与有界退避负责新鲜输入的恢复。
+401/403 退避 300–900 秒；传输、限流与服务端错误退避 30–180 秒。422 丢弃该次请求，
+不反复重试原输入或封停整个 scope。没有真实新鲜输入时不做空探测。旧检查点的
+configuration_valid 字段读取后丢弃，不再成为永久禁试条件；不清除控制器反馈或已接纳 Work。
+原检查点 last_failure 仅保存错误类别、HTTP 状态码、时间和可信内部来源引用，
+不保留异常正文或凭据。当前没有生产 shadow 模式配置。
 
 接纳产生正式 SELF initiative run，与唯一 `initiative:<run_id>` Work 绑定。SELF 不借用最近一位发言者权限，
 没有人类 user/person principal；当前社交读写范围是本群授权历史、群可见及公开 SELF 记忆和本群普通发送。

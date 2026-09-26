@@ -12,13 +12,13 @@ from pydantic import BaseModel, ConfigDict, Field
 class AutonomyParameters(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
-    intrinsic_interval_seconds: float = Field(default=14400, ge=1, le=86400)
+    intrinsic_interval_seconds: float = Field(default=600, ge=1, le=86400)
     human_activity_decay_seconds: float = Field(default=172800, gt=0, le=604800)
-    human_activity_half_saturation: float = Field(default=20, gt=0, le=100000)
-    silence_rise_seconds: float = Field(default=1800, gt=0, le=604800)
+    human_activity_half_saturation: float = Field(default=80, gt=0, le=100000)
+    silence_rise_seconds: float = Field(default=600, gt=0, le=604800)
     silence_decay_seconds: float = Field(default=64800, gt=0, le=604800)
 
-    pressure_bias: float = Field(default=-0.6, ge=-20, le=20)
+    pressure_bias: float = Field(default=0.2, ge=-20, le=20)
     tendency_weight: float = Field(default=0.8, ge=0, le=20)
     activity_weight: float = Field(default=0.5, ge=0, le=20)
     compute_weight: float = Field(default=0.3, ge=0, le=20)

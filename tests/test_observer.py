@@ -73,14 +73,12 @@ def test_recent_ready_focus_precedes_older_ordinary_foci():
 
 def test_unknown_success_and_quiet_group_are_not_outages():
     health = ProviderHealth()
-    assert not health.fallback_required(10000, pending=False)
+    assert not health.degraded
     for t in (1, 2, 3):
         health.failure(t)
-    assert health.fallback_required(4, pending=True)
+    assert health.degraded
     health.success(5)
-    assert not health.fallback_required(10000, pending=True)
-    health.failure(6, configuration_error=True)
-    assert health.fallback_required(7, pending=False)
+    assert not health.degraded
 
 
 @pytest.mark.asyncio

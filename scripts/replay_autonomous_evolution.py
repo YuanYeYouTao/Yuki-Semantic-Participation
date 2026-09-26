@@ -18,9 +18,15 @@ from collections import Counter
 from pathlib import Path
 
 from scripts.group_chat_experiment import provenance, replay_scene
+from yuki_participation.autonomy_parameters import DEFAULT_AUTONOMY_PARAMETERS, AutonomyParameters
 
 
-async def run(fixture: dict, *, simulated_unanswered_send: bool = False) -> dict:
+async def run(
+    fixture: dict,
+    *,
+    simulated_unanswered_send: bool = False,
+    parameters: AutonomyParameters = DEFAULT_AUTONOMY_PARAMETERS,
+) -> dict:
     started = time.perf_counter()
     scenes = []
     horizon = float(fixture["duration_days"]) * 86400
@@ -31,6 +37,7 @@ async def run(fixture: dict, *, simulated_unanswered_send: bool = False) -> dict
             intrinsic_allowed=True,
             horizon=horizon,
             simulated_unanswered_send=simulated_unanswered_send,
+            parameters=parameters,
         )
         human_times = [float(row["at"]) for row in scene["events"] if row["kind"] == "human"]
         quiet_gaps = [
@@ -84,6 +91,7 @@ async def run(fixture: dict, *, simulated_unanswered_send: bool = False) -> dict
     return {
         "kind": "continuous_autonomous_evolution_synthetic_replay",
         "simulated_outcome": "unanswered_send" if simulated_unanswered_send else "no_reply",
+        "parameters": parameters.model_dump(mode="json"),
         "provenance": provenance(fixture),
         "replay_script_sha256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest(),
         "controller_sha256": hashlib.sha256(
@@ -140,10 +148,20 @@ def main() -> None:
     parser.add_argument("--fixture", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--simulated-unanswered-send", action="store_true")
+    parser.add_argument("--parameters", type=Path, help="Validated model profile for paired replay")
     args = parser.parse_args()
     with gzip.open(args.fixture, "rt", encoding="utf-8") as source:
         fixture = json.load(source)
-    report = asyncio.run(run(fixture, simulated_unanswered_send=args.simulated_unanswered_send))
+    parameters = (
+        AutonomyParameters.model_validate_json(args.parameters.read_text(encoding="utf-8"))
+        if args.parameters
+        else DEFAULT_AUTONOMY_PARAMETERS
+    )
+    report = asyncio.run(
+        run(
+            fixture, simulated_unanswered_send=args.simulated_unanswered_send, parameters=parameters
+        )
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(report, ensure_ascii=False, indent=2) + "\n", encoding="utf-8"

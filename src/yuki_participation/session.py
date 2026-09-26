@@ -14,7 +14,7 @@ import httpx
 from pydantic import TypeAdapter
 
 from .controller import Controller
-from .models import CandidateKind, ScopedEvent
+from .models import CandidateKind, ScopedEvent, Snapshot
 from .observer import InputTooLarge, SemanticObserver
 from .scheduling import ObservationQueue, ProviderHealth
 
@@ -27,6 +27,7 @@ class ObservationSession:
         self.health = ProviderHealth()
         self.retry_after = 0.0
         self.last_error: str | None = None
+        self.last_failure: dict[str, object] | None = None
         self.local_rejections: list[dict[str, object]] = []
         checkpoint = controller.state.observer_checkpoint
         if checkpoint:
@@ -36,10 +37,12 @@ class ObservationSession:
             retry_after = checkpoint.get("retry_after")
             last_error = checkpoint.get("last_error")
             rejections = checkpoint.get("local_rejections", [])
+            failure = checkpoint.get("last_failure")
             if (
                 not isinstance(queue, dict)
                 or not isinstance(retry_after, (int, float))
                 or (last_error is not None and not isinstance(last_error, str))
+                or (failure is not None and not isinstance(failure, dict))
                 or not isinstance(rejections, list)
                 or any(
                     not isinstance(item, dict) or any(not isinstance(key, str) for key in item)
@@ -51,6 +54,7 @@ class ObservationSession:
             self.health = TypeAdapter(ProviderHealth).validate_python(checkpoint.get("health"))
             self.retry_after = float(retry_after)
             self.last_error = last_error
+            self.last_failure = failure
             self.local_rejections = cast(list[dict[str, object]], rejections[-64:])
         # Existing observations must never be mistaken for newer responses after a restart.
         self.queue.sequence = max(
@@ -69,6 +73,7 @@ class ObservationSession:
                     "health": asdict(self.health),
                     "retry_after": self.retry_after,
                     "last_error": self.last_error,
+                    "last_failure": self.last_failure,
                     "local_rejections": list(self.local_rejections),
                 }
             }
@@ -87,7 +92,7 @@ class ObservationSession:
         """At most one real request. Inputs may arrive while HTTP is in progress."""
         self.queue.discard_unavailable(now, self.controller.state.events)
         self.checkpoint()
-        if now < self.retry_after or not self.health.configuration_valid:
+        if now < self.retry_after:
             return False
         previous_call = self.queue.last_call
         snapshot = self.queue.take(
@@ -137,13 +142,11 @@ class ObservationSession:
             if not required <= observation.answers.keys():
                 # Keep usable partial interpretation (e.g. an actual stop), but repeated
                 # malformed required dimensions cannot advertise a healthy channel.
-                self.health.failure(now)
-                self.last_error = "partial_required_dimensions_invalid"
-                self.retry_after = now + min(180, 30 * 2 ** min(self.health.failures - 1, 3))
-                self.queue.offer(snapshot.focus, snapshot.kind)
+                self._failed(snapshot, now, "partial_required_dimensions_invalid")
                 return False
             self.health.success(max(now, observation.received_at))
             self.last_error = None
+            self.retry_after = 0.0
             return applied
         except InputTooLarge as exc:
             # No HTTP attempt happened, so this source must neither impair provider health
@@ -163,14 +166,21 @@ class ObservationSession:
             self.local_rejections = self.local_rejections[-64:]
             return False
         except (httpx.HTTPError, ValueError) as exc:
-            configuration_error = isinstance(exc, httpx.HTTPStatusError) and (
-                exc.response.status_code in {401, 403, 422}
+            status = exc.response.status_code if isinstance(exc, httpx.HTTPStatusError) else None
+            category = (
+                "authentication"
+                if status in {401, 403}
+                else "request_validation"
+                if status == 422
+                else "rate_limit"
+                if status == 429
+                else "provider_http"
+                if status is not None
+                else "response_invalid"
+                if isinstance(exc, ValueError)
+                else "transport"
             )
-            self.health.failure(now, configuration_error=configuration_error)
-            self.last_error = type(exc).__name__
-            self.retry_after = now + min(180, 30 * 2 ** min(self.health.failures - 1, 3))
-            # Merge into the pending slot; a newer source in that unit takes precedence.
-            self.queue.offer(snapshot.focus, snapshot.kind)
+            self._failed(snapshot, now, category, status=status)
             return False
         except asyncio.CancelledError:
             self.queue.offer(snapshot.focus, snapshot.kind)
@@ -179,3 +189,27 @@ class ObservationSession:
             self.queue.finish(snapshot.sequence)
             self.queue.discard_unavailable(now, self.controller.state.events)
             self.checkpoint()
+
+    def _failed(
+        self, snapshot: Snapshot, now: float, category: str, *, status: int | None = None
+    ) -> None:
+        """Keep bounded diagnostics and retry only still-fresh real inputs."""
+        self.last_error = category
+        self.last_failure = {
+            "category": category,
+            "status": status,
+            "at": now,
+            "source": snapshot.focus.ref.model_dump(mode="json"),
+        }
+        if status == 422:
+            # This request was rejected. Do not retry the same source or turn it
+            # into a permanent scope-wide configuration/ownership failure.
+            return
+        self.health.failure(now)
+        if status in {401, 403}:
+            self.health.degraded = True
+            delay = min(900, 300 * 2 ** min(self.health.failures - 1, 2))
+        else:
+            delay = min(180, 30 * 2 ** min(self.health.failures - 1, 3))
+        self.retry_after = now + delay
+        self.queue.offer(snapshot.focus, snapshot.kind)
