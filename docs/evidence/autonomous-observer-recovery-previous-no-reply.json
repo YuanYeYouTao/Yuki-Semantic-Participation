@@ -1,0 +1,130 @@
+{
+  "kind": "continuous_autonomous_evolution_synthetic_replay",
+  "simulated_outcome": "no_reply",
+  "parameters": {
+    "intrinsic_interval_seconds": 14400.0,
+    "human_activity_decay_seconds": 172800.0,
+    "human_activity_half_saturation": 20.0,
+    "silence_rise_seconds": 1800.0,
+    "silence_decay_seconds": 64800.0,
+    "pressure_bias": -0.6,
+    "tendency_weight": 0.8,
+    "activity_weight": 0.5,
+    "compute_weight": 0.3,
+    "no_reply_weight": 0.8,
+    "work_fast_weight": 1.8,
+    "work_slow_weight": 0.25,
+    "exposure_weight": 0.55,
+    "reception_weight": 0.5,
+    "source_interval_seconds": 45.0,
+    "source_participation_minimum": 0.15,
+    "source_familiarity_weight": 0.15,
+    "source_invitation_weight": 0.35,
+    "source_extension_weight": 0.25,
+    "source_self_weight": 0.15,
+    "source_closed_weight": 0.7,
+    "source_social_weight": 2.0,
+    "source_opening_seconds": 4.0,
+    "source_opening_floor": 0.1,
+    "independent_source_factor": 0.35,
+    "activity_decay_seconds": 60.0,
+    "activity_increment": 0.1,
+    "social_context_decay_seconds": 14400.0,
+    "social_context_increment": 0.1,
+    "compute_decay_seconds": 180.0,
+    "compute_increment": 0.25,
+    "no_reply_decay_seconds": 3600.0,
+    "no_reply_increment": 0.45,
+    "work_fast_decay_seconds": 1800.0,
+    "work_slow_decay_seconds": 21600.0,
+    "exposure_rise_seconds": 1200.0,
+    "exposure_decay_seconds": 43200.0,
+    "reception_decay_seconds": 21600.0,
+    "willingness_decay_seconds": 1800.0,
+    "willingness_magnitude": 0.7,
+    "conversation_source_decay_seconds": 90.0,
+    "recall_source_decay_seconds": 3600.0,
+    "contact_source_decay_seconds": 1800.0,
+    "unanchored_reception_weight": 0.02,
+    "unanchored_reception_decay_seconds": 1800.0
+  },
+  "provenance": {
+    "fixture_sha256": "f2012e53a60fc56b53601f2b4b1e20853fca5f5ae881e25a4d217a6ca36a3230",
+    "rubric_revision": "v6-zh-4",
+    "source_sha256": {
+      "src/yuki_participation/controller.py": "4b20dcf5f80ec62276b61589a54d6de4864dacf6f13b617c120a66a24bf4c3eb",
+      "src/yuki_participation/dynamics.py": "e3fb0be824c6a42adca6de15c5ea57fe1e69a8a5368e2fac91e1b9f7cd5108db",
+      "src/yuki_participation/scheduling.py": "36e21f6b6fa3d805d9659ccc1701c36b003364c9790ce69727d4b377b8b08729",
+      "src/yuki_participation/session.py": "fd63903e0147ed814babce9c31d1f7078a22b1edef3241a98af9700fb260c15b",
+      "scripts/group_chat_experiment.py": "7d01be020d9f091b8780dae1a41a363351d0905109ad1d017fa7bbfdf7979355"
+    }
+  },
+  "replay_script_sha256": "4613565e371c9416f529fa8af56aac934a913ca861d12a46574746fce70b5f3e",
+  "controller_sha256": "4b20dcf5f80ec62276b61589a54d6de4864dacf6f13b617c120a66a24bf4c3eb",
+  "dynamics_sha256": "e3fb0be824c6a42adca6de15c5ea57fe1e69a8a5368e2fac91e1b9f7cd5108db",
+  "autonomy_parameters_sha256": "0cbb3add24766d40e1b7584c44e72305013070bbd0504d1edd1d63cf572de416",
+  "duration_days": 30,
+  "runtime_seconds": 250.1,
+  "scenes": [
+    {
+      "scene": "full_30d_rank_1",
+      "human_messages": 14488,
+      "observer_calls": 4810,
+      "queue_expired": 34,
+      "quiet_windows_over_6h": 18,
+      "max_quiet_seconds": 122412.74,
+      "proposals": 1289,
+      "proposals_by_kind": {
+        "conversation": 1286,
+        "intrinsic": 3
+      },
+      "proposals_by_last_human_gap": {
+        "1h_to_6h": 3,
+        "under_90s": 1286
+      },
+      "max_proposal_idle_seconds": 15887.77,
+      "unobserved_boundary_proposals": 1
+    },
+    {
+      "scene": "full_30d_rank_2",
+      "human_messages": 1464,
+      "observer_calls": 1457,
+      "queue_expired": 7,
+      "quiet_windows_over_6h": 23,
+      "max_quiet_seconds": 269994.12,
+      "proposals": 287,
+      "proposals_by_kind": {
+        "conversation": 265,
+        "intrinsic": 22
+      },
+      "proposals_by_last_human_gap": {
+        "1h_to_6h": 10,
+        "over_6h": 12,
+        "under_90s": 265
+      },
+      "max_proposal_idle_seconds": 127864.0,
+      "unobserved_boundary_proposals": 1
+    }
+  ],
+  "summary": {
+    "human_messages": 15952,
+    "observer_calls": 6267,
+    "proposals": 1576,
+    "intrinsic_proposals": 25,
+    "simulated_model_work_count": 1576,
+    "simulated_public_works": 0,
+    "quiet_windows_over_6h": 41,
+    "over_6h_proposals": 12
+  },
+  "provider_requests": 0,
+  "main_agent_requests": 0,
+  "qq_messages_sent": 0,
+  "limitations": [
+    "All content and semantic labels are synthetic, calibrated only to server aggregates.",
+    "One continuous controller per 30-day scene; no daily state reset.",
+    "Each accepted Work receives one synthetic model-request receipt.",
+    "Optional public sends are synthetic and receive no reply; no QQ delivery occurs.",
+    "Idle periods are checked every 60 virtual seconds, active sources every 2 seconds.",
+    "Host admission, provider behavior, and social acceptability are not measured."
+  ]
+}

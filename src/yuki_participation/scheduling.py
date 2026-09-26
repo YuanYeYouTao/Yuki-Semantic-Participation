@@ -215,7 +215,6 @@ class ProviderHealth:
     failures: int = 0
     failed_since: float | None = None
     last_success: float | None = None
-    configuration_valid: bool = True
     degraded: bool = False
 
     def success(self, now: float) -> None:
@@ -225,17 +224,8 @@ class ProviderHealth:
         self.last_success = now
         self.degraded = False
 
-    def failure(self, now: float, *, configuration_error: bool = False) -> None:
+    def failure(self, now: float) -> None:
         self.failures += 1
         if self.failed_since is None:
             self.failed_since = now
-        if configuration_error:
-            self.configuration_valid = False
-
-    def fallback_required(self, now: float, *, pending: bool) -> bool:
-        if self.failures >= 3 or (
-            pending and self.failed_since is not None and now - self.failed_since >= 180
-        ):
-            self.degraded = True
-        # Queue expiry is not proof of recovery; only a real successful evaluation is.
-        return not self.configuration_valid or self.degraded
+        self.degraded = self.degraded or self.failures >= 3

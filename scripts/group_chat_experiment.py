@@ -16,6 +16,7 @@ import math
 import random
 from pathlib import Path
 
+from yuki_participation.autonomy_parameters import DEFAULT_AUTONOMY_PARAMETERS, AutonomyParameters
 from yuki_participation.controller import Controller
 from yuki_participation.models import (
     Choice,
@@ -365,13 +366,14 @@ async def replay_scene(
     intrinsic_allowed: bool = False,
     horizon: float | None = None,
     simulated_unanswered_send: bool = False,
+    parameters: AutonomyParameters = DEFAULT_AUTONOMY_PARAMETERS,
 ) -> dict[str, object]:
     records = scene["events"]
     assert isinstance(records, list) and records
     labels = {str(row["id"]): row for row in records}
     scope = Scope(conversation_id=f"synthetic:{scene['id']}", generation=1)
     start = float(records[0]["at"])
-    controller = Controller(scope, start - 1)
+    controller = Controller(scope, start - 1, parameters=parameters)
     observer = FixtureObserver(labels)
     session = ObservationSession(controller, observer)
     proposals: list[dict[str, object]] = []

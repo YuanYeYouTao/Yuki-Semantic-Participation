@@ -225,7 +225,7 @@ async def test_preparation_cannot_replace_focus():
 
 
 @pytest.mark.asyncio
-async def test_provider_fallback_stays_latched_after_expiry_and_restart_until_real_unknown():
+async def test_provider_health_survives_expiry_and_restart_until_real_unknown():
     class Unavailable:
         async def evaluate(self, snapshot):
             raise httpx.ConnectError("synthetic")
@@ -242,16 +242,16 @@ async def test_provider_fallback_stays_latched_after_expiry_and_restart_until_re
         if at == 198:
             session.observe(event("fresh-before-third-failure", at=180))
         assert not await session.evaluate_due(at, active=True)
-    assert session.health.fallback_required(199, pending=True)
+    assert session.health.degraded
     assert not await session.evaluate_due(800, active=False)
     assert not session.queue.pending
-    assert session.health.fallback_required(800, pending=False)
+    assert session.health.degraded
     session.checkpoint()
     restored = ObservationSession(Controller.restore(session.controller.state, 801), Unknown())
-    assert restored.health.fallback_required(801, pending=False)
+    assert restored.health.degraded
     restored.observe(event("fresh-after-outage", at=802))
     assert await restored.evaluate_due(840, active=False)
-    assert not restored.health.fallback_required(840, pending=False)
+    assert not restored.health.degraded
     assert not restored.controller.state.candidates
 
 
@@ -274,3 +274,90 @@ def test_observer_checkpoint_rejects_invalid_shapes_before_restore(field, value)
     session.controller.state.observer_checkpoint[field] = value
     with pytest.raises(ValueError):
         ObservationSession(session.controller, Unused())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [401, 403, 429, 503])
+async def test_http_failure_retries_fresh_input_and_success_recovers(status):
+    calls = []
+
+    class Recovering:
+        async def evaluate(self, snapshot):
+            calls.append(snapshot.focus.ref)
+            if len(calls) == 1:
+                request = httpx.Request("POST", "https://fixture.invalid")
+                response = httpx.Response(status, request=request)
+                raise httpx.HTTPStatusError(
+                    "secret response must not persist", request=request, response=response
+                )
+            return observation(snapshot.focus, act="unknown").model_copy(
+                update={"snapshot": snapshot, "received_at": snapshot.issued_at}
+            )
+
+    session = ObservationSession(controller(), Recovering())
+    session.observe(event())
+    assert not await session.evaluate_due(108, active=True)
+    delay = 300 if status in {401, 403} else 30
+    assert session.retry_after == 108 + delay
+    assert session.last_failure["status"] == status
+    assert "secret" not in str(session.controller.state.observer_checkpoint)
+    restored = ObservationSession(
+        Controller.restore(session.controller.state, 109), session.observer
+    )
+    fresh_at = 108 + delay - 5
+    restored.observe(event("fresh", at=fresh_at))
+    assert not await restored.evaluate_due(108 + delay - 1, active=True)
+    assert await restored.evaluate_due(108 + delay, active=True)
+    assert len(calls) == 2
+    assert calls[-1].event_id == "fresh"
+    assert restored.health.failures == 0 and not restored.health.degraded
+    assert restored.last_error is None and restored.retry_after == 0
+
+
+@pytest.mark.asyncio
+async def test_422_rejects_only_original_request_and_does_not_poison_next_source():
+    calls = []
+
+    class RejectFirst:
+        async def evaluate(self, snapshot):
+            calls.append(snapshot.focus.ref)
+            if len(calls) == 1:
+                request = httpx.Request("POST", "https://fixture.invalid")
+                response = httpx.Response(422, request=request)
+                raise httpx.HTTPStatusError("synthetic", request=request, response=response)
+            return observation(snapshot.focus).model_copy(
+                update={"snapshot": snapshot, "received_at": snapshot.issued_at}
+            )
+
+    session = ObservationSession(controller(), RejectFirst())
+    session.observe(event())
+    assert not await session.evaluate_due(108, active=True)
+    assert session.last_error == "request_validation"
+    assert session.last_failure["source"] == event().ref.model_dump(mode="json")
+    assert session.health.failures == 0 and not session.queue.pending
+    session.observe(event())
+    assert not await session.evaluate_due(116, active=True)
+    assert len(calls) == 1
+    session.observe(event("valid-next", at=117))
+    assert await session.evaluate_due(120, active=True)
+    assert calls[-1].event_id == "valid-next"
+
+
+@pytest.mark.asyncio
+async def test_old_configuration_invalid_checkpoint_can_retry_without_resetting_controller():
+    class Unknown:
+        async def evaluate(self, snapshot):
+            return observation(snapshot.focus, act="unknown").model_copy(
+                update={"snapshot": snapshot, "received_at": snapshot.issued_at}
+            )
+
+    session = ObservationSession(controller(), Unknown())
+    session.observe(event())
+    checkpoint = session.controller.state.observer_checkpoint
+    checkpoint["health"].update(configuration_valid=False, failures=1, degraded=True)
+    checkpoint["retry_after"] = 138
+    restored = ObservationSession(Controller.restore(session.controller.state, 109), Unknown())
+    assert "configuration_valid" not in restored.controller.state.observer_checkpoint["health"]
+    assert not await restored.evaluate_due(137, active=True)
+    assert await restored.evaluate_due(138, active=True)
+    assert not restored.health.degraded and restored.health.failures == 0

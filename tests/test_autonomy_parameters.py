@@ -14,7 +14,11 @@ def test_live_profile_changes_intrinsic_rate_without_mutating_snapshot() -> None
     before_state = controller.state.model_dump_json()
     before_rate = controller.intrinsic_opportunity(100)
 
-    controller.set_parameters(AutonomyParameters(intrinsic_interval_seconds=7200))
+    controller.set_parameters(
+        AutonomyParameters(
+            intrinsic_interval_seconds=controller.parameters.intrinsic_interval_seconds / 2
+        )
+    )
 
     assert controller.intrinsic_opportunity(100) == pytest.approx(before_rate * 2)
     assert controller.state.model_dump_json() == before_state

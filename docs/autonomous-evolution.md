@@ -29,12 +29,12 @@ W_s(t) = Σ_work exp(-(t-t_work)/21600)
 E(t) = Σ_public_work (1-positive_reception_work)
        · (1-exp(-(t-t_public)/1200)) · exp(-(t-t_public)/43200)
 R(t) = tanh(Σ_observation reception_score · exp(-(t-t_observation)/21600))
-z = -0.6 + 0.8d - 0.5q - 0.3f - 0.8n - 1.8W_f - 0.25W_s - 0.55E + 0.5R
+z = 0.2 + 0.8d - 0.5q - 0.3f - 0.8n - 1.8W_f - 0.25W_s - 0.55E + 0.5R
 H(t) = Σ_human exp(-(t-t_i)/172800)
-A(t) = H(t)/(H(t)+20)
+A(t) = H(t)/(H(t)+80)
 s = t - t_last_human
-G(s) = (1-exp(-s/1800)) · exp(-s/64800)
-λ_intrinsic = A(t) · G(s) · sigmoid(z) / 14400
+G(s) = (1-exp(-s/600)) · exp(-s/64800)
+λ_intrinsic = A(t) · G(s) · sigmoid(z) / 600
 P(本轮机会 | Δt) = 1-exp(-λ_total Δt)
 ```
 
@@ -65,12 +65,31 @@ P(本轮机会 | Δt) = 1-exp(-λ_total Δt)
 每次 Work 启动后 `NO_REPLY` 与公开发出后无人回应，比较自主机会分布；模拟发送不进入
 真实 SocialService，也没有真人接收观测。锚定回复和迟到回执由定向测试覆盖。
 旧底率版本的回放证据仍保留在 `docs/evidence/` 供比较，不代表本公式的结果。
-新公式在两群各 30 天合成轨迹中，仅模型 `NO_REPLY` 的情形提出 1,576 次机会，
+先前 14400 秒基率公式在两群各 30 天合成轨迹中，仅模型 `NO_REPLY` 的情形提出 1,576 次机会，
 其中无来源 25 次、最后真人消息超过六小时 12 次；每个 Work 都模拟公开发送且无人回应时，
 分别为 1,551、7、5 次。对应报告见[仅计算回执](evidence/autonomous-activity-window-no-reply.json)
 与[无人回应的公开发送](evidence/autonomous-activity-window-unanswered.json)。高活跃轨迹有大量
 真人来源机会，公开发送后无回应也会压低后续无来源率。这些数字只衡量合成机会，
 不代表真实 QQ 发言数。
+当前采用激进的 600 秒基率、0.2 基础倾向、600 秒冷场上升时标与 80 活动半饱和值。
+600 秒不是固定唤醒周期；快慢 Work 密度、未回应暴露及接收反馈的权重保持。
+配对回放可以通过 `scripts/replay_autonomous_evolution.py --parameters profile.json` 指定
+完整参数；报告保存实际生效参数。相同资料、脚本和样本序号的配对结果如下：
+
+| 模拟结果 | 先前总机会 / 无来源 / 超六小时 | 当前总机会 / 无来源 / 超六小时 |
+| --- | --- | --- |
+| 仅计算后 `NO_REPLY` | 1576 / 25 / 12 | 1857 / 304 / 124 |
+| 每个 Work 公开发送且无人回应 | 1551 / 7 / 5 | 1627 / 84 / 47 |
+
+两群各 30 天共 15952 条合成真人消息，6267 次合成观察，41 个超过六小时的空白。
+无来源机会增加约 12 倍，模拟公开无人回应仍将 304 次机会压到 84 次；总模拟
+Work 分别增加约 18% 和 5%。最大最后真人消息间隔分别约 43.3 和 41.4 小时，
+这来自曾有活动的群冷场长尾，并不赋予长期沉寂群固定突破率。
+当前报告见[仅计算](evidence/autonomous-observer-recovery-aggressive-no-reply.json)和
+[无人回应](evidence/autonomous-observer-recovery-aggressive-unanswered.json)，配对基准见
+[先前仅计算](evidence/autonomous-observer-recovery-previous-no-reply.json)和
+[先前无人回应](evidence/autonomous-observer-recovery-previous-unanswered.json)。
+新回放证据与真实 QQ 行为分别验收。
 真实群聊效果须与 Host 回执及 Jev 观察另行验证。
 
 `AutonomyParameters` 收拢非请求自主机会的基率、压力权重、来源率、迹线增量与时标。
