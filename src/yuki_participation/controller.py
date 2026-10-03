@@ -336,8 +336,10 @@ class Controller:
         seen = self.state.seen.get(event.ref.event_id)
         if seen and seen.revision >= event.ref.revision:
             return False
-        if len(self.state.seen) >= 1024 and seen is None:
-            return False
+        if seen is None and len(self.state.seen) >= 1024:
+            self._make_participation_source_room()
+            if len(self.state.seen) >= 1024:
+                return False
         old = self.state.events.get(event.ref.event_id)
         if old and old.ref.revision >= event.ref.revision:
             return False
@@ -590,6 +592,7 @@ class Controller:
         self._record_reception(key, self.state.observations[key])
         self.state.candidates.pop(key, None)
         self.state.boundaries.pop(key, None)
+        self._prune_participation()
         if event.unit_ambiguous:
             return True
         info = observation.answers.get("information_state")
@@ -688,7 +691,75 @@ class Controller:
             return ParticipationCheckpoint()
 
     def _binding_valid(self, binding: UnitBinding) -> bool:
-        return binding.scope == self.state.scope and all(self._valid(r) for r in binding.basis)
+        if binding.scope != self.state.scope:
+            return False
+        retired = {r for r in binding.basis if not self._valid(r)}
+        if not retired:
+            return True
+        known = self._known_participation_refs(binding)
+        return all(self._retired_participation_ref_valid(ref, known) for ref in retired)
+
+    def _unit_expression_ids(self, checkpoint: ParticipationCheckpoint) -> set[str]:
+        """One existing logical message receipt per established unit, without its body."""
+        latest: dict[str, tuple[float, str]] = {}
+        for effect_id, association in checkpoint.expressions.items():
+            key = self._unit_key(association.binding.unit.thread, association.binding.unit.target)
+            unit = checkpoint.units.get(key)
+            record = self.state.effects.get(effect_id)
+            if (
+                unit is not None
+                and self._same_unit_actor(unit.binding, association.binding)
+                and record is not None
+                and record.effect.kind == "message"
+            ):
+                latest[key] = max(latest.get(key, (-1.0, "")), (record.effect.at, effect_id))
+        return {effect_id for _, effect_id in latest.values()}
+
+    def _participation_refs(self, checkpoint: ParticipationCheckpoint) -> set[SourceRef]:
+        refs = {
+            ref
+            for unit in checkpoint.units.values()
+            for ref in (
+                *unit.binding.basis,
+                *((unit.input_ref,) if unit.input_ref else ()),
+                *unit.hint_basis,
+                *unit.anchors,
+            )
+        }
+        for effect_id in self._unit_expression_ids(checkpoint):
+            refs.update(checkpoint.expressions[effect_id].binding.basis)
+        return refs
+
+    def _unit_ref_valid(self, ref: SourceRef, unit: UnitState) -> bool:
+        if self._valid(ref):
+            return True
+        return self._retired_participation_ref_valid(ref, set(unit.retired_refs))
+
+    def _retired_participation_ref_valid(self, ref: SourceRef, known: set[SourceRef]) -> bool:
+        seen = self.state.seen.get(ref.event_id)
+        return bool(
+            seen
+            and seen.revision == ref.revision
+            and seen.at <= self.state.replay_after
+            and ref.revision > self.state.invalidated.get(ref.event_id, 0)
+            and ref in known
+        )
+
+    def _known_participation_refs(self, binding: UnitBinding) -> set[SourceRef]:
+        raw = self.state.host_checkpoint.get(CHECKPOINT_KEY)
+        if not isinstance(raw, dict) or raw.get("version") != 1:
+            return set()
+        key = self._unit_key(binding.unit.thread, binding.unit.target)
+        units = raw.get("units")
+        if not isinstance(units, dict) or key not in units:
+            return set()
+        try:
+            unit = UnitState.model_validate(units[key])
+        except ValueError:
+            return set()
+        if not self._same_unit_actor(unit.binding, binding):
+            return set()
+        return set(unit.retired_refs)
 
     def _participation_writable(self) -> bool:
         raw = self.state.host_checkpoint.get(CHECKPOINT_KEY)
@@ -750,6 +821,9 @@ class Controller:
             hint=old.hint if old else None,
             hint_basis=old.hint_basis if old else (),
             anchors=old.anchors if old else (),
+            retired_refs=old.retired_refs
+            if old and self._same_unit_actor(old.binding, binding)
+            else (),
         )
         self.state.consumed[event_ref.event_id] = max(
             event_ref.revision, self.state.consumed.get(event_ref.event_id, 0)
@@ -793,7 +867,11 @@ class Controller:
             if anchor is not None:
                 key = self._unit_key(binding.unit.thread, binding.unit.target)
                 unit = checkpoint.units.get(key)
-                if unit is not None and anchor not in unit.anchors:
+                if (
+                    unit is not None
+                    and self._same_unit_actor(unit.binding, binding)
+                    and anchor not in unit.anchors
+                ):
                     checkpoint.units[key] = unit.model_copy(
                         update={"anchors": (*unit.anchors, anchor)}
                     )
@@ -807,6 +885,11 @@ class Controller:
         checkpoint.expressions[effect.effect_id] = association
         key = self._unit_key(binding.unit.thread, binding.unit.target)
         unit = checkpoint.units.get(key)
+        if unit is None or not self._same_unit_actor(unit.binding, binding):
+            # A late transport receipt remains factual, but cannot re-establish a
+            # unit retired by a real interpretation change or resource eviction.
+            self._save_participation(checkpoint)
+            return True
         anchors = tuple(
             dict.fromkeys((*(unit.anchors if unit else ()), *((anchor,) if anchor else ())))
         )
@@ -817,6 +900,9 @@ class Controller:
             hint=unit.hint if unit else None,
             hint_basis=unit.hint_basis if unit else (),
             anchors=anchors,
+            retired_refs=unit.retired_refs
+            if unit and self._same_unit_actor(unit.binding, binding)
+            else (),
         )
         self._save_participation(checkpoint)
         self._prune_participation()
@@ -833,6 +919,8 @@ class Controller:
         checkpoint = self._participation_checkpoint()
         key = self._unit_key(binding.unit.thread, binding.unit.target)
         old = checkpoint.units.get(key)
+        if old is None or not self._same_unit_actor(old.binding, binding):
+            return False
         if old and old.hint:
             previous = old.hint
             if (
@@ -848,6 +936,9 @@ class Controller:
             hint=report,
             hint_basis=binding.basis,
             anchors=old.anchors if old else (),
+            retired_refs=old.retired_refs
+            if old and self._same_unit_actor(old.binding, binding)
+            else (),
         )
         self._save_participation(checkpoint)
         self._prune_participation()
@@ -865,12 +956,14 @@ class Controller:
         units = {
             k: v.model_copy(
                 update={
-                    "anchors": tuple(r for r in v.anchors if self._valid(r)),
-                    "hint": v.hint if all(self._valid(r) for r in v.hint_basis) else None,
+                    "anchors": tuple(r for r in v.anchors if self._unit_ref_valid(r, v)),
+                    "hint": v.hint
+                    if all(self._unit_ref_valid(r, v) for r in v.hint_basis)
+                    else None,
                 }
             )
             for k, v in checkpoint.units.items()
-            if self._binding_valid(v.binding)
+            if self._binding_valid(v.binding) and self._unit_interpretation_valid(v)
         }
         # Use the existing bounded discussion resource policy, not a conversation expiry rule.
         if len(units) > 64:
@@ -880,6 +973,75 @@ class Controller:
             self._save_participation(
                 checkpoint.model_copy(update={"units": units, "expressions": expressions})
             )
+
+    def _retire_participation(self, boundary: float) -> ParticipationCheckpoint:
+        """Fold only already verified unit identities before dropping raw interpretation."""
+        checkpoint = self._participation_checkpoint()
+        if not self._participation_writable():
+            return checkpoint
+        units = {}
+        expressions = self._unit_expression_ids(checkpoint)
+        for key, unit in checkpoint.units.items():
+            if not self._binding_valid(unit.binding) or not self._unit_interpretation_valid(unit):
+                continue
+            retired_anchors = [
+                r
+                for r in unit.anchors
+                if self._unit_ref_valid(r, unit)
+                and (seen := self.state.seen.get(r.event_id)) is not None
+                and seen.at <= boundary
+            ]
+            newest = max(
+                retired_anchors,
+                key=lambda r: (self.state.seen[r.event_id].at, r.event_id),
+                default=None,
+            )
+            anchors = tuple(
+                r
+                for r in unit.anchors
+                if self._valid(r) and self.state.events[r.event_id].at > boundary
+            ) + ((newest,) if newest else ())
+            refs = {
+                *unit.binding.basis,
+                *((unit.input_ref,) if unit.input_ref else ()),
+                *unit.hint_basis,
+                *anchors,
+            }
+            for effect_id in expressions:
+                association = checkpoint.expressions[effect_id]
+                if self._same_unit_actor(association.binding, unit.binding):
+                    refs.update(association.binding.basis)
+            retired = tuple(
+                sorted(
+                    (
+                        r
+                        for r in refs
+                        if self._unit_ref_valid(r, unit)
+                        and (seen := self.state.seen.get(r.event_id)) is not None
+                        and seen.at <= boundary
+                    ),
+                    key=lambda r: (r.event_id, r.revision),
+                )
+            )
+            units[key] = unit.model_copy(update={"anchors": anchors, "retired_refs": retired})
+        ordered = sorted(units, key=lambda k: (-units[k].last_at, k))
+        checkpoint = checkpoint.model_copy(update={"units": {k: units[k] for k in ordered[:64]}})
+        if CHECKPOINT_KEY in self.state.host_checkpoint:
+            self._save_participation(checkpoint)
+        return checkpoint
+
+    def _make_participation_source_room(self) -> None:
+        # Retire derived units under the existing fingerprint resource bound. Never
+        # revive raw sources or block an execution merely to retain a relationship.
+        self._prune()
+        while len(self.state.seen) >= 1024 and self._participation_writable():
+            checkpoint = self._participation_checkpoint()
+            if not checkpoint.units:
+                return
+            oldest = min(checkpoint.units, key=lambda k: (checkpoint.units[k].last_at, k))
+            checkpoint.units.pop(oldest)
+            self._save_participation(checkpoint)
+            self._prune()
 
     def participating_units(self, now: float) -> tuple[UnitParticipation, ...]:
         """Read existing ordinary and SELF units; never queue, consume, or advance."""
@@ -927,9 +1089,9 @@ class Controller:
                 binding=v.binding,
                 belief=self.belief(v.binding.unit.thread, v.binding.unit.target, now),
                 last_at=v.last_at,
-                anchors=tuple(r for r in v.anchors if self._valid(r)),
+                anchors=tuple(r for r in v.anchors if self._unit_ref_valid(r, v)),
                 engage=v.hint.delta.engage
-                if v.hint and all(self._valid(r) for r in v.hint_basis)
+                if v.hint and all(self._unit_ref_valid(r, v) for r in v.hint_basis)
                 else None,
                 expressed=self._unit_key(v.binding.unit.thread, v.binding.unit.target) in expressed,
                 closed=self._unit_closed(v.binding.unit),
@@ -942,7 +1104,7 @@ class Controller:
         ref = unit.input_ref
         if ref is None:
             return True
-        if not self._valid(ref):
+        if not self._unit_ref_valid(ref, unit):
             return False
         if ref.event_id not in self.state.observations:
             return True
@@ -2059,6 +2221,9 @@ class Controller:
                 retained_bytes -= len(retained[offset].text.encode("utf-8"))
                 remaining -= 1
                 offset += 1
+        checkpoint = self._retire_participation(boundary)
+        participation_refs = {r.event_id for r in self._participation_refs(checkpoint)}
+        expression_ids = self._unit_expression_ids(checkpoint)
         self._advance_replay_boundary(boundary)
         # Drop invalidated/consumed fingerprints only with their source window. Older sources
         # cannot re-enter through observe_committed_event's time fence.
@@ -2081,7 +2246,11 @@ class Controller:
             )
         }
         for key, seen in list(self.state.seen.items()):
-            if seen.at < cutoff and key not in boundary_refs:
+            if (
+                seen.at <= self.state.replay_after
+                and key not in boundary_refs
+                and key not in participation_refs
+            ):
                 self.state.seen.pop(key)
                 self.state.content_keys.pop(key, None)
         for mapping in (self.state.consumed, self.state.invalidated):
@@ -2110,7 +2279,11 @@ class Controller:
                 self.state.proposal_runs.pop(feedback.proposal_id, None)
                 self.state.self_reports.pop(run, None)
         for key, effect in list(self.state.effects.items()):
-            if effect.effect.at < cutoff and effect.run_ref not in self.state.feedback:
+            if (
+                effect.effect.at < cutoff
+                and effect.run_ref not in self.state.feedback
+                and key not in expression_ids
+            ):
                 self.state.effects.pop(key)
         referenced = {feedback.proposal_id for feedback in self.state.feedback.values()}
         for key, proposal in list(self.state.proposals.items()):

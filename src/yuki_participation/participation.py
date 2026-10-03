@@ -31,6 +31,7 @@ class UnitState(Record):
     hint: SelfReport | None = None
     hint_basis: tuple[SourceRef, ...] = ()
     anchors: tuple[SourceRef, ...] = ()
+    retired_refs: tuple[SourceRef, ...] = ()
 
 
 class ExpressionBinding(Record):
