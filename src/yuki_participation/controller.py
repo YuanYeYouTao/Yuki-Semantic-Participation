@@ -716,6 +716,15 @@ class Controller:
             }
         )
 
+    @staticmethod
+    def _same_unit_actor(left: UnitBinding, right: UnitBinding) -> bool:
+        return left.scope == right.scope and left.unit == right.unit and left.actor == right.actor
+
+    @classmethod
+    def _unit_binding(cls, old: UnitState | None, binding: UnitBinding) -> UnitBinding:
+        # The unit keeps its establishment sources; each hint/effect has its own binding.
+        return old.binding if old and cls._same_unit_actor(old.binding, binding) else binding
+
     def observe_unit_input(self, binding: UnitBinding, event_ref: SourceRef) -> bool:
         """Host confirms ordinary admission, independently of semantic observation."""
         event = self.state.events.get(event_ref.event_id)
@@ -733,9 +742,9 @@ class Controller:
         key = self._unit_key(binding.unit.thread, binding.unit.target)
         old = checkpoint.units.get(key)
         if old is not None and old.input_ref == event_ref:
-            return old.binding == binding
+            return self._same_unit_actor(old.binding, binding)
         checkpoint.units[key] = UnitState(
-            binding=binding,
+            binding=self._unit_binding(old, binding),
             last_at=max(event.at, old.last_at if old else 0),
             input_ref=event_ref,
             hint=old.hint if old else None,
@@ -802,7 +811,7 @@ class Controller:
             dict.fromkeys((*(unit.anchors if unit else ()), *((anchor,) if anchor else ())))
         )
         checkpoint.units[key] = UnitState(
-            binding=binding,
+            binding=self._unit_binding(unit, binding),
             last_at=max(effect.at, unit.last_at if unit else 0),
             input_ref=unit.input_ref if unit else None,
             hint=unit.hint if unit else None,
@@ -833,7 +842,7 @@ class Controller:
             ):
                 return False
         checkpoint.units[key] = UnitState(
-            binding=binding,
+            binding=self._unit_binding(old, binding),
             last_at=max(report.at, old.last_at if old else 0),
             input_ref=old.input_ref if old else None,
             hint=report,
@@ -931,7 +940,11 @@ class Controller:
 
     def _unit_interpretation_valid(self, unit: UnitState) -> bool:
         ref = unit.input_ref
-        if ref is None or ref.event_id not in self.state.observations:
+        if ref is None:
+            return True
+        if not self._valid(ref):
+            return False
+        if ref.event_id not in self.state.observations:
             return True
         event = self.state.events.get(ref.event_id)
         if event is None or event.ref != ref:

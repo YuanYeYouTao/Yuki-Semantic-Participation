@@ -288,7 +288,12 @@ def test_bound_observation_dependencies_invalidate_unit_on_context_edit():
     b = original.model_copy(update={"basis": (source.ref, context.ref)})
     assert c.observe_unit_hint(b, report("stay"))
     c.observe_source_change(context.ref)
-    assert not c.participating_units(103)
+    # Only this hint used the context; the original unit admission did not.
+    assert c.participating_units(104)[0].engage is None
+    assert c.state.host_checkpoint[CHECKPOINT_KEY]["units"]
+    focus = event("next", at=105)
+    c.observe_committed_event(focus)
+    assert c.participation_view(focus, 105).matched_unit is None
 
 
 @pytest.mark.parametrize("hint", [None, "join", "stay"])
@@ -441,3 +446,72 @@ def test_new_admitted_input_and_hydration_replay_do_not_reset_local_quiet():
     later = event("later", at=107)
     restored.observe_committed_event(later)
     assert restored.participation_view(later, 107).matched_unit is None
+
+
+def test_fifty_continuations_keep_establishment_binding_and_each_actual_effect_basis(tmp_path):
+    c, original, origin = admitted()
+    assert c.observe_unit_hint(origin, report("stay"))
+    bindings = {}
+    for index in range(1, 51):
+        focus = event(f"next-{index}", at=105 + index)
+        c.observe_committed_event(focus)
+        matched = c.participation_view(focus, focus.at).matched_unit
+        assert matched is not None and matched.binding == origin
+        actual = matched.binding.model_copy(update={"basis": (*matched.binding.basis, focus.ref)})
+        assert len(actual.basis) == 2
+        assert c.observe_unit_input(actual, focus.ref)
+        assert c.observe_unit_input(actual, focus.ref)
+        assert c.observe_unit_hint(
+            actual,
+            report("stay", sequence=index + 1, at=focus.at, response=f"response-{index}"),
+        )
+        effect = Effect(
+            effect_id=f"send-{index}", kind="message", at=focus.at, actual_targets=("group",)
+        )
+        assert c.observe_unit_expression(actual, f"run-{index}", effect)
+        bindings[effect.effect_id] = actual.model_dump(mode="json")
+        namespace = c.state.host_checkpoint[CHECKPOINT_KEY]
+        unit = next(iter(namespace["units"].values()))
+        assert unit["binding"] == origin.model_dump(mode="json")
+        assert unit["input_ref"] == focus.ref.model_dump(mode="json")
+        assert unit["hint_basis"] == [original.ref.model_dump(), focus.ref.model_dump()]
+        if index == 25:
+            store = SnapshotStore(tmp_path / "units.sqlite3")
+            store.save(c.state, expected_revision=0)
+            _, restored = store.load(SCOPE)
+            store.close()
+            c = Controller.restore(restored, focus.at)
+    namespace = c.state.host_checkpoint[CHECKPOINT_KEY]
+    assert {k: v["binding"] for k, v in namespace["expressions"].items()} == bindings
+    assert len(c.state.effects) == 50
+    assert all(record.effect.actual_targets == ("group",) for record in c.state.effects.values())
+    # An intermediate input was not used by the current admission/hint or the origin.
+    c.observe_source_change(SourceRef(event_id="next-10", revision=1))
+    assert c.participating_units(156)[0].engage == "stay"
+    assert "send-10" not in c.state.host_checkpoint[CHECKPOINT_KEY]["expressions"]
+    assert "send-10" in c.state.effects  # The actual transport receipt remains historical.
+
+
+@pytest.mark.parametrize("changed", ["origin", "latest"])
+def test_fixed_unit_binding_still_rejects_changed_establishment_or_latest_input(changed):
+    c, source, origin = admitted()
+    focus = event("latest", at=105)
+    c.observe_committed_event(focus)
+    actual = origin.model_copy(update={"basis": (source.ref, focus.ref)})
+    assert c.observe_unit_input(actual, focus.ref)
+    assert c.observe_unit_hint(actual, report("stay", at=105))
+    c.observe_source_change(source.ref if changed == "origin" else focus.ref)
+    next_event = event("unobserved", at=106)
+    c.observe_committed_event(next_event)
+    view = c.participation_view(next_event, 106)
+    assert view.matched_unit is None and view.needs_observation
+
+
+def test_different_actor_cannot_reuse_previous_actors_unit_establishment():
+    c, _, origin = admitted()
+    focus = event("other-actor", at=105).model_copy(update={"author": "B"})
+    c.observe_committed_event(focus)
+    actual = origin.model_copy(update={"actor": "B", "basis": (focus.ref,)})
+    assert c.observe_unit_input(actual, focus.ref)
+    assert c.participating_units(105)[0].binding == actual
+    assert not c.observe_unit_input(origin, focus.ref)

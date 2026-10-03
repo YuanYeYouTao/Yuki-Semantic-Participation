@@ -78,6 +78,11 @@ Jev 观察，Host 默认解析出的 new unit 不能冒充观察。新真人引�
 Host 将已接纳普通轮绑定为 `UnitBinding(scope, unit={thread,target}, actor, basis)`，
 `basis` 可含实际观察的焦点及上下文依赖。每条引用须仍为当前有效版本：
 
+同 scope、unit 和 actor 的参与单元保留首次建立时的 `binding`，最新输入单独更新
+`input_ref` 和 `last_at`。后续入场不累计所有前轮来源；每次真实表达的关联和自身意愿的
+`hint_basis` 仍保留该次完整绑定。建立来源或最新输入失效时不能继续匹配，某次意愿的
+独有上下文失效只撤销该意愿，不改写实际表达回执。
+
 - `observe_unit_input(binding, event_ref)` 登记真实入场并消费原事件。它建立 H，不伪造 Jev 观察或互惠 E。
 - `observe_unit_hint(binding, SelfReport)` 登记可选 join/stay/quiet，仅作用于该 unit。quiet 是自身意愿，
   不写用户 stop；join/stay 不解除真实关闭。无 hint 不补问；原 run/request/response 防重。
