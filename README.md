@@ -6,9 +6,11 @@ Yuki 的群聊语义观察与自主参与控制器。它接收 Host 已授权的
 
 ## 当前决策流程
 
-1. Host 提供带内部 ID、版本和讨论范围的真人事件或获准记忆。名字提及会优先进入
-   Jev 观察；直呼 Yuki 不等同于 `@`，也不直接触发发言。
-2. Jev 确认的明确邀请或直接续答走请求路径。`open_group`、回忆、联系和无来源
+1. Host 提供带内部 ID、版本和讨论范围的真人事件或获准记忆。记录事件与请求 Jev
+   分开；`participation_view` 纯查询已有参与 unit，不调用模型、不消费事件。
+   单一可信续聊关系可沿 Host 普通入场；歧义、新对象和选择性矫正由 Host 显式排队。
+2. Jev 确认的明确邀请或直接续答可由 Host 提升为普通入场。Host 调用
+   `advance(include_addressed=False)`，避免同来源再启动 SELF。`open_group`、回忆、联系和无来源
    `intrinsic` 机会使用[连续概率率](docs/autonomous-evolution.md)采样。近期真实自主 Work
    与公开表达后的接收反馈会调整后续自主调用频率；单次 Work 的消息条数不受此模型限制。
 3. Host 核验来源、停止边界、群授权、唯一 owner、generation 和 Work 占用，接纳后交给
@@ -21,10 +23,11 @@ Yuki 的群聊语义观察与自主参与控制器。它接收 Host 已授权的
 
 ## 仓库边界
 
-- 本库：Jev 观测、O/H/Y/E/C 参与状态、注意与候选、连续概率采样、快照与 proposal。
+- 本库：Jev 观测、纯参与查询、unit 输入/意愿/真实表达关联、O/H/Y/E/C 参与状态、连续概率采样和快照。
 - Yuki Host：canonical 身份与权限、唯一接纳、持久 Work、主 Agent、工具和发送回执。
-- Host 的 `legacy` proposer 是故障恢复时的另一条现行路径；本库旧的 `rate()`、`rates()`、
-  hazard 和固定 `intrinsic` 时钟已删除。旧快照字段只在恢复迁移时读取。
+- Host 的 `legacy` proposer 由 Host selector 控制。本库旧的 `rate()`、`rates()`、
+  hazard、固定 `intrinsic` 时钟和 `predict_continuation` 已删除；旧 predicted 支持不生成新 proposal。
+  新参与数据放在版本化 `State.host_checkpoint.participation_v1` 中，保留其它 Host 键。
 
 ## 开发与回放
 

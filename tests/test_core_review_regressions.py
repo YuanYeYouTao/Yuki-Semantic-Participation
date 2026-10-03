@@ -162,37 +162,6 @@ def test_reinterpretation_recomputes_attention_without_reusing_old_stimulus():
     assert c.belief("topic", "A", 105) == dynamics.IDLE
 
 
-def established_prediction():
-    c = controller()
-    basis = source()
-    proposal = propose(c, basis)
-    effect = Effect(effect_id="expression", kind="message", at=105, actual_targets=("A",))
-    assert c.observe_run_feedback(feedback(proposal, outcome="completed", effects=(effect,)))
-    continuation = source("continuation", at=106, reply_to=basis.ref)
-    assert c.observe_committed_event(continuation)
-    assert c.predict_continuation(continuation, now=106)
-    return c, basis, continuation
-
-
-def test_reinterpreted_basis_invalidates_derived_prediction():
-    c, basis, continuation = established_prediction()
-    assert c.opportunity_scores(110)[continuation.ref.event_id] > 0
-
-    assert c.apply_semantic_observation(
-        observation(basis, sequence=2, act="off_focus", info="repeat")
-    )
-
-    assert continuation.ref.event_id not in c.state.candidates
-    assert not c.opportunity_scores(110)
-
-
-def test_prediction_attention_does_not_accumulate_before_new_source_exists():
-    c, _, continuation = established_prediction()
-    c.opportunity_scores(continuation.at)
-    assert c.state.attentions[continuation.ref.event_id] == 0
-    assert c.state.candidates[continuation.ref.event_id].support.valid_until == 145
-
-
 @pytest.mark.parametrize("kind", ["compute", "tool"])
 def test_non_message_effect_cannot_create_mutual_engagement(kind):
     c = controller()
@@ -324,7 +293,7 @@ def test_non_admission_receipt_does_not_consume_an_unexecuted_proposal(outcome):
 def test_pending_observation_survives_real_snapshot_roundtrip(tmp_path):
     session = ObservationSession(controller(), None)
     event = source()
-    session.observe(event)
+    queue_observation(session, event)
     session.queue.sequence = 7
     session.health.failure(105)
     session.retry_after = 135
@@ -337,7 +306,7 @@ def test_pending_observation_survives_real_snapshot_roundtrip(tmp_path):
         store.close()
 
     restored = ObservationSession(Controller.restore(state, 110), None)
-    restored.observe(event)  # Replay must neither lose nor duplicate the queued source.
+    queue_observation(restored, event)  # Replay must neither lose nor duplicate the queued source.
 
     assert len(restored.queue.pending) == 1
     assert next(iter(restored.queue.pending.values())).event.ref == event.ref
@@ -653,3 +622,8 @@ def test_direct_invitation_is_not_delayed_by_an_unscored_same_unit_fragment():
     assert c.opportunity_scores(106)[invitation.ref.event_id] > 0
     c.observe_source_change(continuation.ref)
     assert c.opportunity_scores(105)[invitation.ref.event_id] > 0
+
+
+def queue_observation(session, source):
+    session.controller.observe_committed_event(source)
+    session.request_observation(source.ref)
