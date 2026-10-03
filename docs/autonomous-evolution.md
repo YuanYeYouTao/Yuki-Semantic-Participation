@@ -1,8 +1,10 @@
 # 自主 Work 的连续概率模型
 
 本文件对应 `dynamics.py` 与 `Controller.advance()`。独立库只提出机会；Host 接纳、授权、
-运行 Main Agent 和发送。明确邀请及有效的直接续答沿原语义路径及时提出 proposal，
-不经过下面的自主采样。proposal 不等于一次模型调用或公开发送。
+运行 Main Agent 和发送。Host 可将已观察的明确邀请与有效直接续答提升为普通入场，
+并设 `advance(include_addressed=False)`，使同来源不再额外提出 SELF proposal。
+库默认 True 兼容旧 caller。普通持续参与查询和 unit 自报不经过下面的自主采样；
+proposal 不等于一次模型调用或公开发送。
 
 ## 输入与状态
 

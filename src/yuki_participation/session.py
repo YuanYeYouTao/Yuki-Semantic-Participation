@@ -14,7 +14,7 @@ import httpx
 from pydantic import TypeAdapter
 
 from .controller import Controller
-from .models import CandidateKind, ScopedEvent, Snapshot
+from .models import CandidateKind, ScopedEvent, Snapshot, SourceRef
 from .observer import InputTooLarge, SemanticObserver
 from .scheduling import ObservationQueue, ProviderHealth
 
@@ -80,13 +80,27 @@ class ObservationSession:
         )
 
     def observe(self, event: ScopedEvent, kind: CandidateKind = CandidateKind.CONVERSATION) -> None:
-        if self.controller.observe_committed_event(event):
-            self.queue.offer(event, kind)
-            if event.kind == "human":
-                self.controller.predict_continuation(
-                    event, now=max(self.controller.state.now, event.at)
-                )
-            self.checkpoint()
+        """Record context only. Hosts separately request observation when needed."""
+        self.controller.observe_committed_event(event)
+
+    def request_observation(
+        self, ref: SourceRef, kind: CandidateKind = CandidateKind.CONVERSATION
+    ) -> bool:
+        event = self.controller.state.events.get(ref.event_id)
+        if event is None or event.ref != ref or not self.controller._valid(ref):
+            return False
+        if event.kind == "self":
+            return False
+        source = ref.model_dump(mode="json")
+        if any(item.get("source") == source for item in self.local_rejections) or (
+            self.last_failure is not None
+            and self.last_failure.get("category") == "request_validation"
+            and self.last_failure.get("source") == source
+        ):
+            return False
+        self.queue.offer(event, kind)
+        self.checkpoint()
+        return True
 
     async def evaluate_due(self, now: float, *, active: bool) -> bool:
         """At most one real request. Inputs may arrive while HTTP is in progress."""

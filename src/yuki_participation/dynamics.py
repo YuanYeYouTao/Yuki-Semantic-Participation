@@ -42,6 +42,14 @@ def self_expression(b: Belief) -> Belief:
     return (0, 0, b[2] + b[0], b[3] + b[1], b[4])
 
 
+def admitted_input(b: Belief) -> Belief:
+    """A real Host-admitted human turn addresses Yuki, without a Jev distribution.
+
+    It does not itself establish mutual engagement or release a closing boundary.
+    """
+    return (0, b[0] + b[1] + b[2], 0, b[3], b[4])
+
+
 def attention(value: float, stimulus: float, seconds: float) -> float:
     return stimulus + (value - stimulus) * math.exp(-max(0, seconds) / 4)
 

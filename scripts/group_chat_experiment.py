@@ -489,7 +489,8 @@ async def replay_scene(
             controller.observe_committed_event(item)
             controller.state.consumed[ref.event_id] = 1
         else:
-            session.observe(item)
+            session.controller.observe_committed_event(item)
+            session.request_observation(item.ref)
         await tick(at)
     await until(horizon if horizon is not None else float(records[-1]["at"]) + 100)
     await tick(now)

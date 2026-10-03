@@ -1,6 +1,6 @@
 # 宿主与控制器协议
 
-以下协议已由独立库和 Yuki Host 实现并做定向验证；真实 QQ 社交效果仍须单独验收。
+以下为独立库的现行接口。Host 固定依赖、部署与真实 QQ 社交效果须按 Host 交付记录分别核验。
 Yuki 接线与权限的现行说明见其 `docs/architecture/semantic-participation.md`。
 
 ## 身份、观测与讨论单元
@@ -19,7 +19,7 @@ Host 可以对包含机器人称呼的焦点标记 `observation_priority`，使�
 此标记不是 `@`、回复授权或候选资格。Jev 若判断为明确邀请/续聊且楼层留给 Yuki，
 即便旧讨论 `unit_selection=unknown`，Controller 也只可采用 Host 已给出的 `new` 单元，
 且须核对该单元的 thread 和作者目标；其它歧义继续保持未知。
-明确邀请的合格观测直接提出机会；非请求式候选按当前状态的连续机会率采样，
+明确邀请的合格观测可由 Host 提升为普通 USER_MESSAGE；非请求式候选按当前状态的连续机会率采样，
 不等待积累门槛。采样只控制新自主 Work 的机会，不限制已接纳 Work 内的消息条数。
 Host 对新的 proposal 仍执行来源、
 停止边界、同会话占用、代际、权限和 Main Agent 接纳检查。
@@ -38,10 +38,13 @@ interaction、information、floor 是新资格所需的必需维度；缺失或�
 
 ```text
 Host canonical 入库、来源版本与授权检查
-  → session.observe(ScopedEvent)
+  → controller.observe_committed_event(ScopedEvent)（或 session.observe，仅记上下文）
+  → controller.participation_view(event, now)（纯查询）
+  → 必要时 session.request_observation(event.ref)
   → await session.evaluate_due(now, active=...)
   → Host 唯一 selector 更新 off / legacy / semantic 及 epoch
-  → controller.advance(now, controller_epoch=..., host_available=..., intrinsic_allowed=...)
+  → controller.advance(now, controller_epoch=..., host_available=..., intrinsic_allowed=...,
+                       include_addressed=False)
   → 保存 State（含 observer_checkpoint）
   → Host submit_proposal；同 proposal_id 返回同 run 或明确拒绝
   → 原有 WorkScheduler / Main Agent / 工具与发送链
@@ -53,6 +56,37 @@ Host canonical 入库、来源版本与授权检查
 Host 再核验 scope/generation、owner/epoch、来源版本与可见性、全部支持、Space、Presence 和已有 Work 占用。
 慢观测不占全局接纳锁；原子写事务不等待 Jev、主模型、网关，也不扫描历史。
 同一 proposal 和已消费来源由持久记录防重，busy 不冒充已消费。
+
+`include_addressed` 默认 True 兼容旧调用；当前 Host 设 False，已观察的真人邀请不再同时产生
+新 SELF 入场。它只过滤候选，不删除原观察或忙碌后待处理的来源。旧 pending 先以原 proposal ID
+查询 Host 接纳记录；已接纳或外部结果未知不得删除或换 ID。Host 证实未接纳后可调用
+`discard_unaccepted_proposal`，只退役该 pending/proposal，保留原候选与观察供普通入场。
+
+## 普通参与查询与反馈
+
+`Controller.participating_units(now)` 返回已有普通 unit 和实际 SELF 表达的 unit/锚点。
+`participation_view(event, now)` 返回 `source_valid`、`current_resolved`、`current_unit`、
+`addressed`、`matched_unit`、`candidates`、`ambiguous`、`needs_observation`；查询不排队、
+不修改快照、消耗事件或采样。已记录事件有效只证明来源存在；`current_resolved` 还需要真实
+Jev 观察，Host 默认解析出的 new unit 不能冒充观察。新真人引用群 SELF 表达时可提供候选锚点，
+不能据此把全部群成员当成已参与；个人目标、真实关闭、局部 quiet 和歧义继续约束匹配。
+`matched_unit` 还须有真实 message 表达关联或明确自身 join/stay，不能仅凭收到 @ 并接纳、
+但尚无表达且 NO_REPLY 就自证参与。`expressed` 是原效果事实，不是 E 分数门槛。
+已绑定输入被同源真实观察重释为别的 unit 或 unknown 歧义时，旧 unit 不再用于匹配，
+但原入场和表达映射保留；查询不会为修正状态再调用 Jev。
+
+Host 将已接纳普通轮绑定为 `UnitBinding(scope, unit={thread,target}, actor, basis)`，
+`basis` 可含实际观察的焦点及上下文依赖。每条引用须仍为当前有效版本：
+
+- `observe_unit_input(binding, event_ref)` 登记真实入场并消费原事件。它建立 H，不伪造 Jev 观察或互惠 E。
+- `observe_unit_hint(binding, SelfReport)` 登记可选 join/stay/quiet，仅作用于该 unit。quiet 是自身意愿，
+  不写用户 stop；join/stay 不解除真实关闭。无 hint 不补问；原 run/request/response 防重。
+- `observe_unit_expression(binding, run_ref, Effect, anchor=...)` 关联真实 message 效果，
+  按原 effect ID 去重；`actual_targets` 保留传输事实，不把 group 改成人。一个逻辑效果的多条
+  真实物理锚点可逐条补登记，不重复计表达。compute/tool 不能冒充 expression。
+
+来源修改、撤回和 generation 切换使对应绑定/意愿失效。普通轮复用 Host 原执行和发送，
+不制造 SELF proposal、Work 或第二个 executor；库不决定执行权限。
 
 Yuki 的唯一 selector 覆盖 legacy 和 semantic。master off 始终是 off；显式关闭 semantic
 才使用 legacy。Jev 缺 key 或观测故障不改变 proposer，真实语义反馈及活动继续演化，
@@ -72,8 +106,9 @@ configuration_valid 字段读取后丢弃，不再成为永久禁试条件；不
 ## 来源、记忆种子与撤回
 
 Host 发现来源撤回或版本变化，先调用 `observe_source_change`，再送入已授权的新版本。
-解释及其上下文依赖、派生预测一并失效。context 出现在快照中不代表它已被作为焦点评分。
-明确引用可短期续接已有真实支持，但不取代待评语义，也不能绕过结束、对象或 generation 边界。
+解释及其上下文依赖和参与绑定一并失效。context 出现在快照中不代表它已被作为焦点评分。
+原 `predict_continuation` 及 predicted 新候选已退役；可信引用关系用于纯参与查询，
+不取代待评语义，也不能绕过结束、对象或 generation 边界。
 重新开放必须有独立、范围一致的明确邀请证据，不能由沉默衰减或自身发言制造。
 
 Yuki 的 memory-only seed 来自 active、verified、当前可读且 lineage 合法的群/SELF 记忆。
@@ -98,5 +133,12 @@ Yuki 的工具证据严格为 event 或 initiative run 二选一；静默工具�
 在公开文字、语音和后续历史前移除控制尾段。解析失败不要求主模型补交，子 Agent 不能冒充主回合，
 mood 不产生他人语义证据。
 
+参与扩展使用 `State.host_checkpoint.participation_v1` version 1 namespace，不新增顶层 State 字段。
+其它 Host 键保持原样；固定旧 b9 reader 可读取、恢复并保存此 namespace，新 reader 不将未知版本
+当成参与证据，也不覆盖未知版本。namespace 随原 SnapshotStore CAS 持久化，未保存的自身意愿
+允许丢失，不能因此重跑主模型或已发送效果。unit 明细沿原有界来源窗口裁剪，旧数值贡献进入
+既有 belief baseline，不形成永久对话 runtime。
+
 SnapshotStore 是单线程同步 SQLite CAS 存储，不跨线程共享连接，不在事务内等待外部工作。
+其容量检查仍在写事务内聚合已有 payload 大小，不宣称事务内完全无扫描。
 公网服务、多租户身份验证、远程发送和独立 Agent Runtime 均不在本库内。
