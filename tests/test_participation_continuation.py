@@ -377,13 +377,19 @@ def test_semantic_correction_of_admitted_focus_cannot_match_old_unit_on_next_foc
 
 
 @pytest.mark.parametrize("namespace_version", [1, 2])
-def test_real_old_reader_load_save_keeps_namespace_and_other_host_keys(tmp_path, namespace_version):
+@pytest.mark.parametrize("retired", [False, True])
+def test_real_old_reader_load_save_keeps_namespace_and_other_host_keys(
+    tmp_path, namespace_version, retired
+):
     revision = "b9c7cc71f8dbaf9bc4b45419e0270a08bf48fe9a"
     available = subprocess.run(["git", "cat-file", "-e", revision], capture_output=True)
     if available.returncode:
         pytest.skip("Frozen old reader git object is unavailable in this checkout")
     c, _, b = admitted()
     c.observe_unit_hint(b, report("stay"))
+    if retired:
+        c.advance(1800, controller_epoch=0, host_available=False)
+        assert c.participating_units(1800)[0].engage == "stay"
     if namespace_version == 2:
         c.state.host_checkpoint[CHECKPOINT_KEY] = {"version": 2, "unknown": ["retained"]}
     c.state.host_checkpoint["outbound_threads"] = {"event:old": "old-thread"}
@@ -408,7 +414,7 @@ from yuki_participation.models import Scope
 from yuki_participation.store import SnapshotStore
 s=SnapshotStore(Path('participation.sqlite3'))
 revision,state=s.load(Scope(conversation_id='group-test',generation=1))
-c=Controller.restore(state,110)
+c=Controller.restore(state,max(110,state.now))
 s.save(c.state,expected_revision=revision)
 s.close()
 """
@@ -424,8 +430,8 @@ s.close()
     assert revision == 2
     assert state.host_checkpoint[CHECKPOINT_KEY] == namespace
     assert state.host_checkpoint["outbound_threads"] == {"event:old": "old-thread"}
-    restored = Controller.restore(state, 110)
-    if namespace_version == 1:
+    restored = Controller.restore(state, max(110, state.now))
+    if namespace_version == 1 and not retired:
         assert restored.participating_units(110)[0].engage == "stay"
     else:
         assert not restored.participating_units(110)

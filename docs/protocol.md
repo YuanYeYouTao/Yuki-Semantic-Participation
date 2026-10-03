@@ -85,10 +85,12 @@ Host 将已接纳普通轮绑定为 `UnitBinding(scope, unit={thread,target}, ac
 
 - `observe_unit_input(binding, event_ref)` 登记真实入场并消费原事件。它建立 H，不伪造 Jev 观察或互惠 E。
 - `observe_unit_hint(binding, SelfReport)` 登记可选 join/stay/quiet，仅作用于该 unit。quiet 是自身意愿，
-  不写用户 stop；join/stay 不解除真实关闭。无 hint 不补问；原 run/request/response 防重。
+  不写用户 stop；join/stay 不解除真实关闭。它只更新仍存在的真实入场 unit，晚到意愿不重建
+  已重释或退役的参与关系。无 hint 不补问；原 run/request/response 防重。
 - `observe_unit_expression(binding, run_ref, Effect, anchor=...)` 关联真实 message 效果，
   按原 effect ID 去重；`actual_targets` 保留传输事实，不把 group 改成人。一个逻辑效果的多条
   真实物理锚点可逐条补登记，不重复计表达。compute/tool 不能冒充 expression。
+  晚到真实回执保留原效果关联，但不据此重建已退役的 unit；新普通入场继续由原真实输入建立。
 
 来源修改、撤回和 generation 切换使对应绑定/意愿失效。普通轮复用 Host 原执行和发送，
 不制造 SELF proposal、Work 或第二个 executor；库不决定执行权限。
@@ -141,8 +143,19 @@ mood 不产生他人语义证据。
 参与扩展使用 `State.host_checkpoint.participation_v1` version 1 namespace，不新增顶层 State 字段。
 其它 Host 键保持原样；固定旧 b9 reader 可读取、恢复并保存此 namespace，新 reader 不将未知版本
 当成参与证据，也不覆盖未知版本。namespace 随原 SnapshotStore CAS 持久化，未保存的自身意愿
-允许丢失，不能因此重跑主模型或已发送效果。unit 明细沿原有界来源窗口裁剪，旧数值贡献进入
-既有 belief baseline，不形成永久对话 runtime。
+允许丢失，不能因此重跑主模型或已发送效果。原事件正文及语义解释仍按 600 秒、256 条及
+256 KiB 的有限 replay 窗口整理，旧数值贡献进入既有 belief baseline；这不是参与关系的
+十分钟到期规则。已建立 unit 保留原 `SeenSource(revision, at)` 小身份、最新输入与当前意愿
+依赖、一个已退休的真实表达锚点，以及最后一个原 message 效果回执。它不保留旧正文或
+伪造新观察，也不恢复旧候选；普通 `_valid` 仍只承认当前原始事件。
+
+仅原 unit 内在合法整理时记录到 `UnitState.retired_refs` 的引用可在正文退出后复用这些身份，
+同时要求 `SeenSource` 同版本且未撤销。默认空证明不能凭其它 stop 留下的 seen 升格。
+最新实际解释变更对象或 unknown 歧义时立即退役对应派生 unit，不能因解释退出窗口忘掉冲突。来源修改/撤回
+继续撤销对应参与依据；Host 仍须用原账本核验来源版本。真实关闭与局部 quiet 不因整理
+或重启解除。参与单元仍最多 64 个，来源指纹沿用 1024 个资源界限；满额时优先退役旧派生
+unit，而非保留无限正文或封停业务。固定旧 b9 reader 可保存 namespace，但可能裁掉
+不认识的退休依据；新 reader 此后视为未知，不凭 namespace 或旧 SourceRef 复活参与关系。
 
 SnapshotStore 是单线程同步 SQLite CAS 存储，不跨线程共享连接，不在事务内等待外部工作。
 其容量检查仍在写事务内聚合已有 payload 大小，不宣称事务内完全无扫描。
