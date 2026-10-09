@@ -2145,7 +2145,9 @@ class Controller:
                         else None,
                     )
         self._refresh_seed_responses()
-        if self.state.pending == proposal.proposal_id and feedback.outcome != "accepted":
+        # Pending owns only an unanswered proposal. The Host's durable Work and
+        # execution lease own accepted work, including waits and later resumes.
+        if self.state.pending == proposal.proposal_id:
             self._set(pending=None)
         return True
 
@@ -2302,7 +2304,9 @@ class Controller:
                 f.proposal_id == proposal.proposal_id and f.outcome == "accepted"
                 for f in self.state.feedback.values()
             )
-            if proposal.expires_at <= self.state.now and not accepted:
+            # Old snapshots retained accepted proposals in this slot. Their real
+            # acceptance feedback already transferred ownership to the Host.
+            if accepted or proposal.expires_at <= self.state.now:
                 self._set(pending=None)
         self._prune_participation()
 
