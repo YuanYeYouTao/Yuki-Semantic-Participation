@@ -54,6 +54,9 @@ Host canonical 入库、来源版本与授权检查
 
 `host_available` 是宿主当前的接纳事实，不由 Jev 决定。Proposal 不是发送授权。
 Host 再核验 scope/generation、owner/epoch、来源版本与可见性、全部支持、Space、Presence 和已有 Work 占用。
+`pending` 只保留尚未得到 Host 回答的 proposal；收到真实接纳反馈后让出该槽。
+已接纳 run 的执行、等待和恢复由 Host 的原 Work 与持久回执管理，控制器保留其反馈与来源关联，
+不以一个未清空的接纳槽阻止后续合法机会。
 慢观测不占全局接纳锁；原子写事务不等待 Jev、主模型、网关，也不扫描历史。
 同一 proposal 和已消费来源由持久记录防重，busy 不冒充已消费。
 

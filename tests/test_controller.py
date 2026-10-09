@@ -268,11 +268,45 @@ def test_proposal_consumption_survives_feedback_replay_and_restart(tmp_path):
         store.save(c.state, expected_revision=0)
     _, saved = store.load(SCOPE)
     resumed = Controller.restore(saved, 110)
-    assert resumed.state.pending == p.proposal_id
+    assert resumed.state.pending is None
     assert "threshold" not in resumed.state.model_fields_set
     assert not resumed.advance(111, controller_epoch=0, host_available=True)
     assert store.save(resumed.state, expected_revision=revision) == 2
     store.close()
+
+
+def test_accepted_proposal_releases_pending_but_retains_real_run_after_restart():
+    c = controller()
+    first = event()
+    c.observe_committed_event(first)
+    c.apply_semantic_observation(observation(first))
+    proposal = c.advance(105, controller_epoch=0, host_available=True)
+    assert proposal is not None
+    accepted = Feedback(
+        run_ref="retained-run",
+        proposal_id=proposal.proposal_id,
+        sequence=1,
+        outcome="accepted",
+        at=105,
+        considered_refs=(first.ref,),
+    )
+    assert c.observe_run_feedback(accepted)
+    assert c.state.pending is None
+    old = c.state.model_copy(update={"pending": proposal.proposal_id}, deep=True)
+    restored = Controller.restore(old, 106)
+    assert restored.state.pending is None
+    assert restored.state.proposal_runs[proposal.proposal_id] == "retained-run"
+    second = event("second", at=107)
+    restored.observe_committed_event(second)
+    restored.apply_semantic_observation(observation(second))
+    next_proposal = restored.advance(108, controller_epoch=0, host_available=True)
+    assert next_proposal is not None
+    assert next_proposal.proposal_id != proposal.proposal_id
+    assert restored.observe_run_feedback(
+        accepted.model_copy(update={"sequence": 2, "outcome": "completed", "at": 109})
+    )
+    assert restored.state.feedback["retained-run"].outcome == "completed"
+    assert restored.state.pending == next_proposal.proposal_id
 
 
 def test_disabled_time_and_epoch_change_cannot_create_stale_proposal():
